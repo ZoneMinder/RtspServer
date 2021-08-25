@@ -9,7 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -17,7 +17,7 @@
 #endif
 
 namespace xop
-{	
+{
 
 class SelectTaskScheduler : public TaskScheduler
 {
@@ -28,7 +28,7 @@ public:
 	void UpdateChannel(ChannelPtr channel);
 	void RemoveChannel(ChannelPtr& channel);
 	bool HandleEvent(int timeout);
-	
+
 private:
 	fd_set fd_read_backup_;
 	fd_set fd_write_backup_;

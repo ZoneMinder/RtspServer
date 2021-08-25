@@ -1,6 +1,6 @@
 #include "Timestamp.h"
 #include <iostream>
-#include <iomanip>  
+#include <iomanip>
 #include <sstream>
 
 using namespace xop;
@@ -12,16 +12,16 @@ std::string Timestamp::Localtime()
     std::ostringstream stream;
     auto now = system_clock::now();
     time_t tt = system_clock::to_time_t(now);
-	
+
 #if defined(WIN32) || defined(_WIN32)
     struct tm tm;
     localtime_s(&tm, &tt);
     stream << std::put_time(&tm, "%F %T");
-#elif  defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#elif  defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
     char buffer[200] = {0};
     std::string timeString;
     std::strftime(buffer, 200, "%F %T", std::localtime(&tt));
     stream << buffer;
-#endif	
+#endif
     return stream.str();
 }

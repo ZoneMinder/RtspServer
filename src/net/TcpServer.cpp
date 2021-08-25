@@ -2,7 +2,7 @@
 #include "Acceptor.h"
 #include "EventLoop.h"
 #include "Logger.h"
-#include <cstdio>  
+#include <cstdio>
 
 using namespace xop;
 using namespace std;
@@ -53,7 +53,7 @@ bool TcpServer::Start(std::string ip, uint16_t port)
 
 void TcpServer::Stop()
 {
-	if (is_started_) {		
+	if (is_started_) {
 		mutex_.lock();
 		for (auto iter : connections_) {
 			iter.second->Disconnect();
@@ -69,11 +69,16 @@ void TcpServer::Stop()
 				break;
 			}
 		}
-	}	
+	}
 }
 
 TcpConnection::Ptr TcpServer::OnConnect(SOCKET sockfd)
 {
+#ifdef DEBUG
+	#if defined(ANDROID)
+    __android_log_print(ANDROID_LOG_VERBOSE,  MODULE_NAME, "TcpServer: received connect request...");
+	#endif
+#endif
 	return std::make_shared<TcpConnection>(event_loop_->GetTaskScheduler().get(), sockfd);
 }
 

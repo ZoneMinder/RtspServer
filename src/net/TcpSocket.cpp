@@ -11,12 +11,12 @@ using namespace xop;
 TcpSocket::TcpSocket(SOCKET sockfd)
     : sockfd_(sockfd)
 {
-    
+
 }
 
 TcpSocket::~TcpSocket()
 {
-	
+
 }
 
 SOCKET TcpSocket::Create()
@@ -27,10 +27,10 @@ SOCKET TcpSocket::Create()
 
 bool TcpSocket::Bind(std::string ip, uint16_t port)
 {
-	struct sockaddr_in addr = {0};			  
-	addr.sin_family = AF_INET;		  
-	addr.sin_addr.s_addr = inet_addr(ip.c_str()); 
-	addr.sin_port = htons(port);  
+	struct sockaddr_in addr = {0};
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(ip.c_str());
+	addr.sin_port = htons(port);
 
 	if(::bind(sockfd_, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
 		LOG_DEBUG(" <socket=%d> bind <%s:%u> failed.\n", sockfd_, ip.c_str(), port);
@@ -60,7 +60,7 @@ SOCKET TcpSocket::Accept()
 }
 
 bool TcpSocket::Connect(std::string ip, uint16_t port, int timeout)
-{ 
+{
 	if(!SocketUtil::Connect(sockfd_, ip, port, timeout)) {
 		LOG_DEBUG("<socket=%d> connect failed.\n", sockfd_);
 		return false;
@@ -71,12 +71,12 @@ bool TcpSocket::Connect(std::string ip, uint16_t port, int timeout)
 
 void TcpSocket::Close()
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
     ::close(sockfd_);
 #elif defined(WIN32) || defined(_WIN32)
     closesocket(sockfd_);
 #else
-	
+
 #endif
 	sockfd_ = 0;
 }

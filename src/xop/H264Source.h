@@ -33,6 +33,9 @@ public:
 private:
 	H264Source(uint32_t framerate);
 
+    bool nalUnitChecked_;
+    bool decodeNAL_;
+    
 	uint32_t framerate_ = 25;
 };
 	

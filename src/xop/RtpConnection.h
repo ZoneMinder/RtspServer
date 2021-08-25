@@ -1,4 +1,4 @@
-﻿// PHZ
+// PHZ
 // 2018-6-8
 
 #ifndef XOP_RTP_CONNECTION_H
@@ -69,7 +69,7 @@ public:
     void Teardown();
 
     std::string GetRtpInfo(const std::string& rtsp_url);
-    int SendRtpPacket(MediaChannelId channel_id, RtpPacket pkt);
+    int SendRtpPacket(MediaChannelId channel_id, RtpPacket pkt, bool isRtcp = false);
 
     bool IsClosed() const
     { return is_closed_; }
@@ -82,9 +82,10 @@ public:
 private:
     friend class RtspConnection;
     friend class MediaSession;
+    void AssembleRTCPMessage();
     void SetFrameType(uint8_t frameType = 0);
     void SetRtpHeader(MediaChannelId channel_id, RtpPacket pkt);
-    int  SendRtpOverTcp(MediaChannelId channel_id, RtpPacket pkt);
+    int  SendRtpOverTcp(MediaChannelId channel_id, RtpPacket pkt, bool isRtcp = false);
     int  SendRtpOverUdp(MediaChannelId channel_id, RtpPacket pkt);
 
 	std::weak_ptr<TcpConnection> rtsp_connection_;

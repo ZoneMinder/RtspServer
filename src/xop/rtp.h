@@ -1,4 +1,4 @@
-﻿// PHZ
+// PHZ
 // 2018-6-11
 
 #ifndef XOP_RTP_H
@@ -36,6 +36,25 @@ typedef struct _RTP_header
 	unsigned int   ts;
 	unsigned int   ssrc;
 } RtpHeader;
+
+
+//===============  TAKEN FROM https://github.com/sipwise/rtpengine
+struct rtcp_header {
+        unsigned            count:5;    /**< varies by payload type */
+        unsigned            p:1;        /**< padding flag           */
+        unsigned            version:2;  /**< packet type            */
+        unsigned char pt;
+        uint16_t length;
+} __attribute__ ((packed));
+
+struct rtcp_packet {
+        struct rtcp_header header;
+        uint32_t ssrc;
+} __attribute__ ((packed));
+
+//===============================
+
+
 
 struct MediaChannelInfo
 {

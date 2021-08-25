@@ -1,7 +1,7 @@
-﻿// PHZ
+// PHZ
 // 2018-5-16
 
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -9,9 +9,9 @@
 #include "G711ASource.h"
 #include <cstdio>
 #include <chrono>
-#if defined(__linux) || defined(__linux__) 
+#if defined(__linux) || defined(__linux__)  || defined(__APPLE__) || defined(ANDROID)
 #include <sys/time.h>
-#endif 
+#endif
 
 using namespace xop;
 using namespace std;
@@ -30,7 +30,7 @@ G711ASource* G711ASource::CreateNew()
 
 G711ASource::~G711ASource()
 {
-	
+
 }
 
 string G711ASource::GetMediaDescription(uint16_t port)
@@ -39,7 +39,7 @@ string G711ASource::GetMediaDescription(uint16_t port)
 	sprintf(buf, "m=audio %hu RTP/AVP 8", port);
 	return string(buf);
 }
-	
+
 string G711ASource::GetAttribute()
 {
     return string("a=rtpmap:8 PCMA/8000/1");
@@ -74,4 +74,3 @@ int64_t G711ASource::GetTimestamp()
 	auto time_point = chrono::time_point_cast<chrono::microseconds>(chrono::steady_clock::now());
 	return (int64_t)((time_point.time_since_epoch().count()+500)/1000*8);
 }
-

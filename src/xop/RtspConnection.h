@@ -1,4 +1,4 @@
-﻿// PHZ
+// PHZ
 // 2018-6-8
 
 #ifndef _RTSP_CONNECTION_H
@@ -75,6 +75,20 @@ public:
 	int GetId() const
 	{ return task_scheduler_->GetId(); }
 
+    std::string GetNonce() const
+    { return _nonce; }
+    void SetNonce(std::string nonce)
+    { _nonce = nonce; }
+    
+    uint32_t GetCseq() const
+    {
+        return rtsp_response_->GetCSeq();
+    }
+    void SetCseq(uint32_t cseq)
+    {
+        rtsp_response_->SetCSeq(cseq);
+    }
+    
 	bool IsPlay() const
 	{ return conn_state_ == START_PLAY; }
 
@@ -105,6 +119,7 @@ private:
 	bool HandleAuthentication();
 
 	void SendOptions(ConnectionMode mode= RTSP_SERVER);
+    void SendTeardown(ConnectionMode mode= RTSP_SERVER);
 	void SendDescribe();
 	void SendAnnounce();
 	void SendSetup();

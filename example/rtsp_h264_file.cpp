@@ -20,7 +20,7 @@ public:
 	{ return (m_file != NULL); }
 
 	int ReadFrame(char* in_buf, int in_buf_size, bool* end);
-    
+
 private:
 	FILE *m_file = NULL;
 	char *m_buf = NULL;
@@ -32,7 +32,7 @@ private:
 void SendFrameThread(xop::RtspServer* rtsp_server, xop::MediaSessionId session_id, H264File* h264_file);
 
 int main(int argc, char **argv)
-{	
+{
 	if(argc != 2) {
 		printf("Usage: %s test.h264 \n", argv[0]);
 		return 0;
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 	std::string ip = "127.0.0.1";
 	std::string port = "554";
 	std::string rtsp_url = "rtsp://" + ip + ":" + port + "/" + suffix;
-	
+
 	std::shared_ptr<xop::EventLoop> event_loop(new xop::EventLoop());
 	std::shared_ptr<xop::RtspServer> server = xop::RtspServer::Create(event_loop.get());
 
@@ -61,21 +61,21 @@ int main(int argc, char **argv)
 	server->SetAuthConfig("-_-", "admin", "12345");
 #endif
 
-	xop::MediaSession *session = xop::MediaSession::CreateNew("live"); 
-	session->AddSource(xop::channel_0, xop::H264Source::CreateNew()); 
-	//session->StartMulticast(); 
+	xop::MediaSession *session = xop::MediaSession::CreateNew("live");
+	session->AddSource(xop::channel_0, xop::H264Source::CreateNew());
+	//session->StartMulticast();
 	session->AddNotifyConnectedCallback([] (xop::MediaSessionId sessionId, std::string peer_ip, uint16_t peer_port){
 		printf("RTSP client connect, ip=%s, port=%hu \n", peer_ip.c_str(), peer_port);
 	});
-   
+
 	session->AddNotifyDisconnectedCallback([](xop::MediaSessionId sessionId, std::string peer_ip, uint16_t peer_port) {
 		printf("RTSP client disconnect, ip=%s, port=%hu \n", peer_ip.c_str(), peer_port);
 	});
 
 	xop::MediaSessionId session_id = server->AddSession(session);
-         
+
 	std::thread t1(SendFrameThread, server.get(), session_id, &h264_file);
-	t1.detach(); 
+	t1.detach();
 
 	std::cout << "Play URL: " << rtsp_url << std::endl;
 
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 }
 
 void SendFrameThread(xop::RtspServer* rtsp_server, xop::MediaSessionId session_id, H264File* h264_file)
-{       
+{
 	int buf_size = 2000000;
 	std::unique_ptr<uint8_t> frame_buf(new uint8_t[buf_size]);
 
@@ -96,19 +96,20 @@ void SendFrameThread(xop::RtspServer* rtsp_server, xop::MediaSessionId session_i
 		bool end_of_frame = false;
 		int frame_size = h264_file->ReadFrame((char*)frame_buf.get(), buf_size, &end_of_frame);
 		if(frame_size > 0) {
-			xop::AVFrame videoFrame = {0};
-			videoFrame.type = 0; 
-			videoFrame.size = frame_size;
+			xop::AVFrame videoFrame;
+			videoFrame.type = 0;
 			videoFrame.timestamp = xop::H264Source::GetTimestamp();
-			videoFrame.buffer.reset(new uint8_t[videoFrame.size]);    
-			memcpy(videoFrame.buffer.get(), frame_buf.get(), videoFrame.size);
+			//videoFrame.buffer.reset(new uint8_t[videoFrame.size]);
+			//memcpy(videoFrame.buffer.get(), frame_buf.get(), videoFrame.size);
+			videoFrame.buffer.resize(frame_size);
+			memcpy(videoFrame.buffer.data(), frame_buf.get(), frame_size);
 			rtsp_server->PushFrame(session_id, xop::channel_0, videoFrame);
 		}
 		else {
 			break;
 		}
-      
-		xop::Timer::Sleep(40); 
+
+		xop::Timer::Sleep(40);
 	};
 }
 
@@ -126,7 +127,7 @@ H264File::~H264File()
 bool H264File::Open(const char *path)
 {
 	m_file = fopen(path, "rb");
-	if(m_file == NULL) {      
+	if(m_file == NULL) {
 		return false;
 	}
 
@@ -151,11 +152,11 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 
 	int bytes_read = (int)fread(m_buf, 1, m_buf_size, m_file);
 	if(bytes_read == 0) {
-		fseek(m_file, 0, SEEK_SET); 
+		fseek(m_file, 0, SEEK_SET);
 		m_count = 0;
 		m_bytes_used = 0;
 		bytes_read = (int)fread(m_buf, 1, m_buf_size, m_file);
-		if(bytes_read == 0)         {            
+		if(bytes_read == 0)         {
 			this->Close();
 			return -1;
 		}
@@ -175,8 +176,8 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 		else  {
 			continue;
 		}
-        
-		if (((m_buf[i+start_code]&0x1F) == 0x5 || (m_buf[i+start_code]&0x1F) == 0x1) 
+
+		if (((m_buf[i+start_code]&0x1F) == 0x5 || (m_buf[i+start_code]&0x1F) == 0x1)
 			&& ((m_buf[i+start_code+1]&0x80) == 0x80)) {
 			is_find_start = true;
 			i += 4;
@@ -195,9 +196,9 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 		else   {
 			continue;
 		}
-        
-		if (((m_buf[i+start_code]&0x1F) == 0x7) || ((m_buf[i+start_code]&0x1F) == 0x8) 
-			|| ((m_buf[i+start_code]&0x1F) == 0x6)|| (((m_buf[i+start_code]&0x1F) == 0x5 
+
+		if (((m_buf[i+start_code]&0x1F) == 0x7) || ((m_buf[i+start_code]&0x1F) == 0x8)
+			|| ((m_buf[i+start_code]&0x1F) == 0x6)|| (((m_buf[i+start_code]&0x1F) == 0x5
 			|| (m_buf[i+start_code]&0x1F) == 0x1) &&((m_buf[i+start_code+1]&0x80) == 0x80)))  {
 			is_find_end = true;
 			break;
@@ -205,7 +206,7 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 	}
 
 	bool flag = false;
-	if(is_find_start && !is_find_end && m_count>0) {        
+	if(is_find_start && !is_find_end && m_count>0) {
 		flag = is_find_end = true;
 		i = bytes_read;
 		*end = true;
@@ -217,7 +218,7 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 	}
 
 	int size = (i<=in_buf_size ? i : in_buf_size);
-	memcpy(in_buf, m_buf, size); 
+	memcpy(in_buf, m_buf, size);
 
 	if(!flag) {
 		m_count += 1;
@@ -231,5 +232,3 @@ int H264File::ReadFrame(char* in_buf, int in_buf_size, bool* end)
 	fseek(m_file, m_bytes_used, SEEK_SET);
 	return size;
 }
-
-

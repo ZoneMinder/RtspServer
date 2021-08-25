@@ -1,4 +1,4 @@
-﻿// PHZ
+// PHZ
 // 2018-9-30
 
 #include "MediaSession.h"
@@ -139,13 +139,27 @@ std::string MediaSession::GetSdpMessage(std::string ip, std::string session_name
 	}
 
 	char buf[2048] = {0};
-
+/*
+    snprintf(buf, sizeof(buf),
+             "v=0\r\n"
+             "o=- 0 0 IN IP4 127.0.0.1\r\n"
+             "s=No Name\r\n"
+             "c=IN IP4 54.155.36.131\r\n"
+             "t=0 0\r\n"
+             "a=tool:libavformat 58.76.100\r\n"
+             "m=video 0 RTP/AVP 96\r\n"
+             "a=rtpmap:96 H264/90000\r\n"
+             "a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z2QAH6yyAeBr8v/gIgAiIgAAAwACAAADAHgeMGSQ,aOvDyyLA; profile-level-id=64001F\r\n"
+             "a=control:streamid=0\r\n");
+*/
+    
 	snprintf(buf, sizeof(buf),
 			"v=0\r\n"
 			"o=- 9%ld 1 IN IP4 %s\r\n"
 			"t=0 0\r\n"
 			"a=control:*\r\n" ,
-			(long)std::time(NULL), ip.c_str()); 
+             (long)std::time(NULL),
+             ip.c_str());
 
 	if(session_name != "") {
 		snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), 
@@ -175,16 +189,21 @@ std::string MediaSession::GetSdpMessage(std::string ip, std::string session_name
 						"%s\r\n",
 						media_sources_[chn]->GetMediaDescription(0).c_str());
 			}
+            //snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf),
+            //         "c=IN IP4 54.155.36.131\r\n");
             
 			snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), 
 					"%s\r\n",
 					media_sources_[chn]->GetAttribute().c_str());
-                     
+                    
+            //snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf),"a=fmtp:96 packetization-mode=1; sprop-parameter-sets=Z2QAH6yyAeBr8v/gIgAiIgAAAwACAAADAHgeMGSQ,aOvDyyLA; profile-level-id=64001F\r\n");
+            
 			snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf),											
-					"a=control:track%d\r\n", chn);	
+					// "a=control:track%d\r\n", chn);
+                     "a=control:streamid=%d\r\n", chn);
 		}
 	}
-
+    
 	sdp_ = buf;
 	return sdp_;
 }

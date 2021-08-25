@@ -1,4 +1,4 @@
-﻿// PHZ
+// PHZ
 // 2018-5-16
 
 #if defined(WIN32) || defined(_WIN32)
@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <cstdio>
 #include <chrono>
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(__APPLE__) || defined(ANDROID)
 #include <sys/time.h>
 #endif
 
@@ -61,13 +61,13 @@ string AACSource::GetAttribute()  // RFC 3640
 	for (index = 0; index < 16; index++) {
 		if (AACSampleRate[index] == samplerate_) {
 			break;
-		}        
+		}
 	}
 
 	if (index == 16) {
 		return ""; // error
 	}
-     
+
 	uint8_t profile = 1;
 	char config[10] = {0};
 
