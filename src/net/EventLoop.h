@@ -27,7 +27,7 @@
 namespace xop
 {
 
-class EventLoop 
+class DLL_API EventLoop
 {
 public:
 	EventLoop(const EventLoop&) = delete;

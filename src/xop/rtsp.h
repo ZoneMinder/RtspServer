@@ -13,6 +13,13 @@
 #include "net/Socket.h"
 #include "net/Timer.h"
 
+#if defined(ANDROID)
+	#include <android/log.h>
+	#ifndef MODULE_NAME
+		#define MODULE_NAME "RTSPSERVER"
+	#endif
+#endif
+
 namespace xop
 {
 
@@ -24,13 +31,13 @@ struct RtspUrlInfo
 	std::string suffix;
 };
 
-class Rtsp : public std::enable_shared_from_this<Rtsp>
+class DLL_API Rtsp : public std::enable_shared_from_this<Rtsp>
 {
 public:
 	Rtsp() : has_auth_info_(false), authenticator_(nullptr) {}
 	virtual ~Rtsp() {}
 
-  virtual void SetAuthenticator(std::shared_ptr<Authenticator>authenticator) 
+  virtual void SetAuthenticator(std::shared_ptr<Authenticator>authenticator)
   {
     std::cerr << "Setting Authenticator" << std::endl;
     authenticator_ = authenticator;
@@ -51,7 +58,7 @@ public:
 		char ip[100] = { 0 };
 		char suffix[100] = { 0 };
 		uint16_t port = 0;
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
 		if (sscanf(url.c_str() + 7, "%[^:]:%hu/%s", ip, &port, suffix) == 3)
 #elif defined(WIN32) || defined(_WIN32)
 		if (sscanf_s(url.c_str() + 7, "%[^:]:%hu/%s", ip, 100, &port, suffix, 100) == 3)
@@ -59,7 +66,7 @@ public:
 		{
 			rtsp_url_info_.port = port;
 		}
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
 		else if (sscanf(url.c_str() + 7, "%[^/]/%s", ip, suffix) == 2)
 #elif defined(WIN32) || defined(_WIN32)
 		else if (sscanf_s(url.c_str() + 7, "%[^/]/%s", ip, 100, suffix, 100) == 2)
@@ -97,5 +104,3 @@ protected:
 }
 
 #endif
-
-

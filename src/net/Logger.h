@@ -12,6 +12,16 @@
 #include <iostream>
 #include <sstream>
 
+#if(WIN32)
+#ifdef DLL_EXPORTS
+#define DLL_API __declspec(dllexport)
+#else
+#define DLL_API __declspec(dllimport)
+#endif
+#else
+#define DLL_API
+#endif 
+
 namespace xop {
 
 
@@ -20,7 +30,7 @@ enum Priority
     LOG_DEBUG, LOG_STATE, LOG_INFO, LOG_WARNING, LOG_ERROR,
 };	
 	
-class Logger
+class DLL_API Logger
 {
 public:
 	Logger &operator=(const Logger &) = delete;

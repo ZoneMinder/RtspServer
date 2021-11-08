@@ -48,8 +48,6 @@ uint16_t xop::ReadUint16LE(char* data)
 	return value; 
 }
 
-const char BufferReader::kCRLF[] = "\r\n";
-
 BufferReader::BufferReader(uint32_t initial_size)
 {
 	buffer_.resize(initial_size);

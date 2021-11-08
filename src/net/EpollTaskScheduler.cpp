@@ -3,9 +3,10 @@
 
 #include "EpollTaskScheduler.h"
 
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
 #include <sys/epoll.h>
 #include <errno.h>
+#elif defined(__APPLE__)
 #endif
 
 using namespace xop;
@@ -13,21 +14,23 @@ using namespace xop;
 EpollTaskScheduler::EpollTaskScheduler(int id)
 	: TaskScheduler(id)
 {
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
     epollfd_ = epoll_create(1024);
- #endif
+#elif  defined(__APPLE__)
+
+#endif
     this->UpdateChannel(wakeup_channel_);
 }
 
 EpollTaskScheduler::~EpollTaskScheduler()
 {
-	
+
 }
 
 void EpollTaskScheduler::UpdateChannel(ChannelPtr channel)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
 	int fd = channel->GetSocket();
 	if(channels_.find(fd) != channels_.end()) {
 		if(channel->IsNoneEvent()) {
@@ -42,14 +45,16 @@ void EpollTaskScheduler::UpdateChannel(ChannelPtr channel)
 		if(!channel->IsNoneEvent()) {
 			channels_.emplace(fd, channel);
 			Update(EPOLL_CTL_ADD, channel);
-		}	
-	}	
+		}
+	}
+#elif  defined(__APPLE__)
+
 #endif
 }
 
 void EpollTaskScheduler::Update(int operation, ChannelPtr& channel)
 {
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
 	struct epoll_event event = {0};
 
 	if(operation != EPOLL_CTL_DEL) {
@@ -60,25 +65,29 @@ void EpollTaskScheduler::Update(int operation, ChannelPtr& channel)
 	if(::epoll_ctl(epollfd_, operation, channel->GetSocket(), &event) < 0) {
 
 	}
+#elif  defined(__APPLE__)
+
 #endif
 }
 
 void EpollTaskScheduler::RemoveChannel(ChannelPtr& channel)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
 	int fd = channel->GetSocket();
 
 	if(channels_.find(fd) != channels_.end()) {
 		Update(EPOLL_CTL_DEL, channel);
 		channels_.erase(fd);
 	}
+#elif  defined(__APPLE__)
+
 #endif
 }
 
 bool EpollTaskScheduler::HandleEvent(int timeout)
 {
-#if defined(__linux) || defined(__linux__)
+#if defined(__linux) || defined(__linux__) || defined(ANDROID)
 	struct epoll_event events[512] = {0};
 	int num_events = -1;
 
@@ -86,18 +95,18 @@ bool EpollTaskScheduler::HandleEvent(int timeout)
 	if(num_events < 0)  {
 		if(errno != EINTR) {
 			return false;
-		}								
+		}
 	}
 
 	for(int n=0; n<num_events; n++) {
-		if(events[n].data.ptr) {        
+		if(events[n].data.ptr) {
 			((Channel *)events[n].data.ptr)->HandleEvent(events[n].events);
 		}
-	}		
+	}
 	return true;
+#elif  defined(__APPLE__)
+    return false;
 #else
     return false;
 #endif
 }
-
-

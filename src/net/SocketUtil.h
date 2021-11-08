@@ -10,7 +10,7 @@
 namespace xop
 {
     
-class SocketUtil
+class DLL_API SocketUtil
 {
 public:
     static bool Bind(SOCKET sockfd, std::string ip, uint16_t port);

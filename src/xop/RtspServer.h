@@ -16,7 +16,7 @@ namespace xop
 
 class RtspConnection;
 
-class RtspServer : public Rtsp, public TcpServer
+class DLL_API RtspServer : public Rtsp, public TcpServer
 {
 public:    
 	static std::shared_ptr<RtspServer> Create(xop::EventLoop* loop);

@@ -17,7 +17,7 @@ namespace xop
 class Acceptor;
 class EventLoop;
 
-class TcpServer
+class DLL_API TcpServer
 {
 public:	
 	TcpServer(EventLoop* event_loop);

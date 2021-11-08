@@ -10,7 +10,7 @@ namespace xop
 
 class RtspConnection;
 
-class RtspPusher : public Rtsp
+class DLL_API RtspPusher : public Rtsp
 {
 public:
 	static std::shared_ptr<RtspPusher> Create(xop::EventLoop* loop);

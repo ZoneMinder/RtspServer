@@ -11,7 +11,7 @@
 namespace xop
 {
     
-class TcpSocket
+class DLL_API TcpSocket
 {
 public:
     TcpSocket(SOCKET sockfd=-1);

@@ -1,59 +1,84 @@
-cmake_minimum_required(VERSION 3.5.0)
-project(RtspServer)
+project(RTSPServer)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src/net/" "${CMAKE_CURRENT_SOURCE_DIR}/src/xop/")
+# Cmake needs some version information
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 
-file(GLOB rtspserver_sources
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/xop/*.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/xop/*.h"
-  )
+set(CMAKE_CXX_STANDARD 14)
 
-set(RTSPSERVER_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Acceptor.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/BufferReader.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/BufferWriter.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/EpollTaskScheduler.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/EventLoop.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Logger.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/MemoryManager.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/NetInterface.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Pipe.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/SelectTaskScheduler.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/SocketUtil.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Socket.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TcpConnection.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TcpServer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Timer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/Timestamp.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TaskScheduler.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TcpSocket.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/AACSource.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/DigestAuthentication.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/G711ASource.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/H264Source.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/MediaSession.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/H264Parser.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/H265Source.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/RtpConnection.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/RtspConnection.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/RtspMessage.cpp 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/RtspPusher.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/RtspServer.cpp
+SET(ARCHSTR ${ANDROID_ABI})
+message(STATUS "Architecture: ${ARCHSTR}")
+
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
+#=======================================
+# USER DEFINED VARIABLES
+
+IF(NOT CMAKE_BUILD_TYPE)
+	MESSAGE(STATUS "CMAKE_BUILD_TYPE was not specified. Building Debug Version.")
+	SET(CMAKE_BUILD_TYPE Debug)
+ENDIF(NOT CMAKE_BUILD_TYPE)
+
+#==========================================================
+
+INCLUDE_DIRECTORIES(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdpart
 )
 
-add_library(RtspServer STATIC ${rtspserver_sources})
-add_library(RtspServer::RtspServer ALIAS RtspServer)
+FILE(GLOB NetSources ${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.cpp)
+FILE(GLOB NetHeaders ${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.h)
+ADD_LIBRARY(net SHARED ${NetSources} ${NetHeaders})
+SET_TARGET_PROPERTIES(net PROPERTIES
+  DEBUG_POSTFIX d
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/${ARCHSTR}"
+)
 
-target_include_directories(RtspServer
-  PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/xop/"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/3rdpart/"
-   )
+FILE(GLOB XopSources ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/*.cpp)
+FILE(GLOB XopHeaders ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/*.h)
+ADD_LIBRARY(xop SHARED ${XopSources} ${XopHeaders})
+ADD_DEPENDENCIES(xop net)
+TARGET_LINK_LIBRARIES(xop net)
+SET_TARGET_PROPERTIES(xop PROPERTIES
+  DEBUG_POSTFIX d
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/${ARCHSTR}"
+)
 
-target_link_libraries(RtspServer
-  PRIVATE
-    zm-dependency-interface)
+IF(ANDROID)
+  TARGET_LINK_LIBRARIES(xop log)
+	TARGET_LINK_LIBRARIES(net log)
+ENDIF(ANDROID)
 
+IF(BUILD_EXECUTABLE)
+  ADD_EXECUTABLE(rtsp_pusher ${CMAKE_CURRENT_SOURCE_DIR}/example/rtsp_pusher.cpp )
+  ADD_DEPENDENCIES(rtsp_pusher net xop)
+  TARGET_LINK_LIBRARIES(rtsp_pusher net xop)
+  SET_TARGET_PROPERTIES(rtsp_pusher PROPERTIES
+  	DEBUG_POSTFIX d
+  	ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/${ARCHSTR}"
+  )
+
+  ADD_EXECUTABLE(rtsp_h264_file ${CMAKE_CURRENT_SOURCE_DIR}/example/rtsp_h264_file.cpp )
+  ADD_DEPENDENCIES(rtsp_h264_file net xop)
+  TARGET_LINK_LIBRARIES(rtsp_h264_file net xop)
+  SET_TARGET_PROPERTIES(rtsp_h264_file PROPERTIES
+  	DEBUG_POSTFIX d
+  	ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/${ARCHSTR}"
+  )
+
+  ADD_EXECUTABLE(rtsp_server ${CMAKE_CURRENT_SOURCE_DIR}/example/rtsp_server.cpp )
+  ADD_DEPENDENCIES(rtsp_server net xop)
+  TARGET_LINK_LIBRARIES(rtsp_server net xop)
+  SET_TARGET_PROPERTIES(rtsp_server PROPERTIES
+  	DEBUG_POSTFIX d
+  	ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib/${ARCHSTR}"
+  	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin/${ARCHSTR}"
+  )
+ENDIF(BUILD_EXECUTABLE)

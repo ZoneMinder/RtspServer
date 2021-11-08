@@ -25,7 +25,7 @@ SelectTaskScheduler::SelectTaskScheduler(int id)
 
 SelectTaskScheduler::~SelectTaskScheduler()
 {
-	
+
 }
 
 void SelectTaskScheduler::UpdateChannel(ChannelPtr channel)
@@ -52,8 +52,8 @@ void SelectTaskScheduler::UpdateChannel(ChannelPtr channel)
 			is_fd_read_reset_ = true;
 			is_fd_write_reset_ = true;
 			is_fd_exp_reset_ = true;
-		}	
-	}	
+		}
+	}
 }
 
 void SelectTaskScheduler::RemoveChannel(ChannelPtr& channel)
@@ -71,12 +71,12 @@ void SelectTaskScheduler::RemoveChannel(ChannelPtr& channel)
 }
 
 bool SelectTaskScheduler::HandleEvent(int timeout)
-{	
+{
 	if(channels_.empty()) {
 		if (timeout <= 0) {
 			timeout = 10;
 		}
-         
+
 		Timer::Sleep(timeout);
 		return true;
 	}
@@ -95,7 +95,7 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 		if (is_fd_exp_reset_) {
 			maxfd_ = 0;
 		}
-          
+
 		std::lock_guard<std::mutex> lock(mutex_);
 		for(auto iter : channels_) {
 			int events = iter.second->GetEvents();
@@ -114,9 +114,9 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 				if(fd > maxfd_) {
 					maxfd_ = fd;
 				}
-			}		
+			}
 		}
-        
+
 		fd_read_reset = is_fd_read_reset_;
 		fd_write_reset = is_fd_write_reset_;
 		fd_exp_reset = is_fd_exp_reset_;
@@ -124,15 +124,15 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 		is_fd_write_reset_ = false;
 		is_fd_exp_reset_ = false;
 	}
-	
+
 	if(fd_read_reset) {
 		FD_ZERO(&fd_read_backup_);
-		memcpy(&fd_read_backup_, &fd_read, sizeof(fd_set)); 
+		memcpy(&fd_read_backup_, &fd_read, sizeof(fd_set));
 	}
 	else {
 		memcpy(&fd_read, &fd_read_backup_, sizeof(fd_set));
 	}
-       
+
 
 	if(fd_write_reset) {
 		FD_ZERO(&fd_write_backup_);
@@ -141,7 +141,7 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 	else {
 		memcpy(&fd_write, &fd_write_backup_, sizeof(fd_set));
 	}
-     
+
 
 	if(fd_exp_reset) {
 		FD_ZERO(&fd_exp_backup_);
@@ -156,13 +156,13 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 	}
 
 	struct timeval tv = { timeout/1000, timeout%1000*1000 };
-	int ret = select((int)maxfd_+1, &fd_read, &fd_write, &fd_exp, &tv); 	
+	int ret = select((int)maxfd_+1, &fd_read, &fd_write, &fd_exp, &tv);
 	if (ret < 0) {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
 	if(errno == EINTR) {
 		return true;
-	}					
-#endif 
+	}
+#endif
 		return false;
 	}
 
@@ -189,7 +189,7 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 				event_list.emplace_front(iter.second, events);
 			}
 		}
-	}	
+	}
 
 	for(auto& iter: event_list) {
 		iter.first->HandleEvent(iter.second);
@@ -197,6 +197,3 @@ bool SelectTaskScheduler::HandleEvent(int timeout)
 
 	return true;
 }
-
-
-

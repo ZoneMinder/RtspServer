@@ -12,7 +12,7 @@
 namespace xop
 {
 
-class DigestAuthenticator : public Authenticator
+class DLL_API DigestAuthenticator : public Authenticator
 {
 public:
 	DigestAuthenticator(std::string realm, std::string username, std::string password);
@@ -30,6 +30,8 @@ public:
 	std::string GetNonce();
 	std::string GetResponse(std::string nonce, std::string cmd, std::string url);
 
+    bool HandleUnauthorized(BufferReader* buffer,std::string& nonce, bool& unauthorized);
+    
   bool Authenticate(std::shared_ptr<RtspRequest> request, std::string &nonce);
   size_t GetFailedResponse(std::shared_ptr<RtspRequest> request, std::shared_ptr<char> buf, size_t size);
 

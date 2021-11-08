@@ -1,7 +1,7 @@
-﻿// PHZ
+// PHZ
 // 2018-6-7
 
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -10,7 +10,7 @@
 #include "H265Source.h"
 #include <cstdio>
 #include <chrono>
-#if defined(__linux) || defined(__linux__) 
+#if defined(__linux) || defined(__linux__)  || defined(__APPLE__) || defined(ANDROID)
 #include <sys/time.h>
 #endif
 
@@ -32,7 +32,7 @@ H265Source* H265Source::CreateNew(uint32_t framerate)
 
 H265Source::~H265Source()
 {
-	
+
 }
 
 string H265Source::GetMediaDescription(uint16_t port)
@@ -41,7 +41,7 @@ string H265Source::GetMediaDescription(uint16_t port)
 	sprintf(buf, "m=video %hu RTP/AVP 96", port);
 	return string(buf);
 }
-	
+
 string H265Source::GetAttribute()
 {
 	return string("a=rtpmap:96 H265/90000");
@@ -55,7 +55,7 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 	if (frame.timestamp == 0) {
 		frame.timestamp = GetTimestamp();
 	}
-        
+
 	if (frame_size <= MAX_RTP_PAYLOAD_SIZE) {
 		RtpPacket rtp_pkt;
 		rtp_pkt.type = frame.type;
@@ -64,23 +64,23 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 		rtp_pkt.last = 1;
 
 		memcpy(rtp_pkt.data.get()+4+RTP_HEADER_SIZE, frame_buf, frame_size);
-        
+
 		if (send_frame_callback_) {
 			if (!send_frame_callback_(channelId, rtp_pkt)) {
 				return false;
-			}          
+			}
 		}
-	}	
-	else {	
-		char FU[3] = {0};	
-		char nalUnitType = (frame_buf[0] & 0x7E) >> 1; 
-		FU[0] = (frame_buf[0] & 0x81) | (49<<1); 
-		FU[1] = frame_buf[1]; 
-		FU[2] = (0x80 | nalUnitType); 
-        
+	}
+	else {
+		char FU[3] = {0};
+		char nalUnitType = (frame_buf[0] & 0x7E) >> 1;
+		FU[0] = (frame_buf[0] & 0x81) | (49<<1);
+		FU[1] = frame_buf[1];
+		FU[2] = (0x80 | nalUnitType);
+
 		frame_buf  += 2;
 		frame_size -= 2;
-        
+
 		while (frame_size + 3 > MAX_RTP_PAYLOAD_SIZE) {
 			RtpPacket rtp_pkt;
 			rtp_pkt.type = frame.type;
@@ -92,19 +92,19 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			rtp_pkt.data.get()[RTP_HEADER_SIZE+5] = FU[1];
 			rtp_pkt.data.get()[RTP_HEADER_SIZE+6] = FU[2];
 			memcpy(rtp_pkt.data.get()+4+RTP_HEADER_SIZE+3, frame_buf, MAX_RTP_PAYLOAD_SIZE-3);
-            
+
 			if (send_frame_callback_) {
 				if (!send_frame_callback_(channelId, rtp_pkt)) {
 					return false;
-				}                
+				}
 			}
-            
+
 			frame_buf  += (MAX_RTP_PAYLOAD_SIZE - 3);
 			frame_size -= (MAX_RTP_PAYLOAD_SIZE - 3);
-        
-			FU[2] &= ~0x80;						
+
+			FU[2] &= ~0x80;
 		}
-        
+
 		{
 			RtpPacket rtp_pkt;
 			rtp_pkt.type = frame.type;
@@ -117,13 +117,13 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			rtp_pkt.data.get()[RTP_HEADER_SIZE+5] = FU[1];
 			rtp_pkt.data.get()[RTP_HEADER_SIZE+6] = FU[2];
 			memcpy(rtp_pkt.data.get()+4+RTP_HEADER_SIZE+3, frame_buf, frame_size);
-            
+
 			if (send_frame_callback_) {
 				if (!send_frame_callback_(channelId, rtp_pkt)) {
 					return false;
-				}               
+				}
 			}
-		}            
+		}
 	}
 
 	return true;
@@ -132,7 +132,7 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 
 int64_t H265Source::GetTimestamp()
 {
-/* #if defined(__linux) || defined(__linux__) 
+/* #if defined(__linux) || defined(__linux__)  || defined(__APPLE__) || defined(ANDROID)
 	struct timeval tv = {0};
 	gettimeofday(&tv, NULL);
 	uint32_t ts = ((tv.tv_sec*1000)+((tv.tv_usec+500)/1000))*90; // 90: _clockRate/1000;
@@ -142,5 +142,5 @@ int64_t H265Source::GetTimestamp()
 	//auto time_point = chrono::time_point_cast<chrono::milliseconds>(chrono::steady_clock::now());
 	auto time_point = chrono::time_point_cast<chrono::microseconds>(chrono::steady_clock::now());
 	return (int64_t)((time_point.time_since_epoch().count() + 500) / 1000 * 90);
-//#endif 
+//#endif
 }

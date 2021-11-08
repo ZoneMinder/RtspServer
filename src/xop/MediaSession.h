@@ -26,7 +26,7 @@ namespace xop
 
 class RtpConnection;
 
-class MediaSession
+class DLL_API MediaSession
 {
 public:
 	using Ptr = std::shared_ptr<MediaSession>;

@@ -7,6 +7,10 @@
 #include <string>
 #include <array>
 
+#if defined(__APPLE__)
+  #include <unistd.h>
+#endif
+
 using namespace xop;
 
 Pipe::Pipe()
@@ -16,7 +20,7 @@ Pipe::Pipe()
 
 bool Pipe::Create()
 {
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
 	TcpSocket rp(socket(AF_INET, SOCK_STREAM, 0)), wp(socket(AF_INET, SOCK_STREAM, 0));
 	std::random_device rd;
 
@@ -26,20 +30,20 @@ bool Pipe::Create()
 	int again = 5;
 
 	while(again--) {
-		port = rd(); 
+		port = rd();
 		if (rp.Bind("127.0.0.1", port)) {
 			break;
-		}		
+		}
 	}
 
 	if (again == 0) {
 		return false;
 	}
-    
+
 	if (!rp.Listen(1)) {
 		return false;
 	}
-      
+
 	if (!wp.Connect("127.0.0.1", port)) {
 		return false;
 	}
@@ -55,34 +59,44 @@ bool Pipe::Create()
 	if (pipe2(pipe_fd_, O_NONBLOCK | O_CLOEXEC) < 0) {
 		return false;
 	}
+#elif defined(__APPLE__) || defined(ANDROID)
+    if(pipe(pipe_fd_) < 0)
+        return false;
+    if(fcntl(pipe_fd_[0],F_SETFL,O_NONBLOCK | O_CLOEXEC) < 0)
+       return false;
+    if(fcntl(pipe_fd_[1],F_SETFL,O_NONBLOCK | O_CLOEXEC) < 0)
+        return false;
+    //if (pipe2(pipe_fd_, O_NONBLOCK | O_CLOEXEC) < 0) {
+    //    return false;
+    //}
 #endif
 	return true;
 }
 
 int Pipe::Write(void *buf, int len)
 {
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
     return ::send(pipe_fd_[1], (char *)buf, len, 0);
-#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
     return ::write(pipe_fd_[1], buf, len);
-#endif 
+#endif
 }
 
 int Pipe::Read(void *buf, int len)
 {
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
     return recv(pipe_fd_[0], (char *)buf, len, 0);
-#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
     return ::read(pipe_fd_[0], buf, len);
-#endif 
+#endif
 }
 
 void Pipe::Close()
 {
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
 	closesocket(pipe_fd_[0]);
 	closesocket(pipe_fd_[1]);
-#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
 	::close(pipe_fd_[0]);
 	::close(pipe_fd_[1]);
 #endif

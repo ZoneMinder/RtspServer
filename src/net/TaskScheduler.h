@@ -14,7 +14,7 @@ namespace xop
 
 typedef std::function<void(void)> TriggerEvent;
 
-class TaskScheduler 
+class DLL_API TaskScheduler
 {
 public:
 	TaskScheduler(int id=1);

@@ -12,7 +12,7 @@
 namespace xop
 {
 
-class TcpConnection : public std::enable_shared_from_this<TcpConnection>
+class DLL_API TcpConnection : public std::enable_shared_from_this<TcpConnection>
 {
 public:
 	using Ptr = std::shared_ptr<TcpConnection>;

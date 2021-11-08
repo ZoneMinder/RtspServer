@@ -20,7 +20,7 @@ void WriteUint24LE(char* p, uint32_t value);
 void WriteUint16BE(char* p, uint16_t value);
 void WriteUint16LE(char* p, uint16_t value);
 	
-class BufferWriter
+class DLL_API BufferWriter
 {
 public:
 	BufferWriter(int capacity = kMaxQueueLength);

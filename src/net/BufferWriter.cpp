@@ -49,22 +49,22 @@ void xop::WriteUint16LE(char* p, uint16_t value)
 	p[1] = value >> 8;
 }
 
-BufferWriter::BufferWriter(int capacity) 
+BufferWriter::BufferWriter(int capacity)
 	: max_queue_length_(capacity)
 {
-	
-}	
+
+}
 
 bool BufferWriter::Append(std::shared_ptr<char> data, uint32_t size, uint32_t index)
 {
 	if (size <= index) {
 		return false;
 	}
-   
+
 	if ((int)buffer_.size() >= max_queue_length_) {
 		return false;
 	}
-     
+
 	Packet pkt = { data, size, index };
 	buffer_.emplace(std::move(pkt));
 	return true;
@@ -75,11 +75,11 @@ bool BufferWriter::Append(const char* data, uint32_t size, uint32_t index)
 	if (size <= index) {
 		return false;
 	}
-     
+
 	if ((int)buffer_.size() >= max_queue_length_) {
 		return false;
 	}
-     
+
 	Packet pkt;
 	pkt.data.reset(new char[size+512]);
 	memcpy(pkt.data.get(), data, size);
@@ -90,11 +90,11 @@ bool BufferWriter::Append(const char* data, uint32_t size, uint32_t index)
 }
 
 int BufferWriter::Send(SOCKET sockfd, int timeout)
-{		
+{
 	if (timeout > 0) {
-		SocketUtil::SetBlock(sockfd, timeout); 
+		SocketUtil::SetBlock(sockfd, timeout);
 	}
-      
+
 	int ret = 0;
 	int count = 1;
 
@@ -103,7 +103,7 @@ int BufferWriter::Send(SOCKET sockfd, int timeout)
 		if (buffer_.empty()) {
 			return 0;
 		}
-		
+
 		count -= 1;
 		Packet &pkt = buffer_.front();
 		ret = ::send(sockfd, pkt.data.get() + pkt.writeIndex, pkt.size - pkt.writeIndex, 0);
@@ -115,8 +115,8 @@ int BufferWriter::Send(SOCKET sockfd, int timeout)
 			}
 		}
 		else if (ret < 0) {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
-		if (errno == EINTR || errno == EAGAIN) 
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__) || defined(ANDROID)
+		if (errno == EINTR || errno == EAGAIN)
 #elif defined(WIN32) || defined(_WIN32)
 			int error = WSAGetLastError();
 			if (error == WSAEWOULDBLOCK || error == WSAEINPROGRESS || error == 0)
@@ -130,8 +130,6 @@ int BufferWriter::Send(SOCKET sockfd, int timeout)
 	if (timeout > 0) {
 		SocketUtil::SetNonBlock(sockfd);
 	}
-    
+
 	return ret;
 }
-
-

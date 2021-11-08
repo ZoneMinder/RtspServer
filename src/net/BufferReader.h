@@ -21,7 +21,7 @@ uint32_t ReadUint24LE(char* data);
 uint16_t ReadUint16BE(char* data);
 uint16_t ReadUint16LE(char* data);
     
-class BufferReader
+class DLL_API BufferReader
 {
 public:	
 	BufferReader(uint32_t initial_size = 2048);
@@ -40,11 +40,13 @@ public:
 	{ return Begin() + reader_index_; }
 
 	const char* FindFirstCrlf() const {    
+		char kCRLF[] = "\r\n";
 		const char* crlf = std::search(Peek(), BeginWrite(), kCRLF, kCRLF+2);
 		return crlf == BeginWrite() ? nullptr : crlf;
 	}
 
 	const char* FindLastCrlf() const {    
+		char kCRLF[] = "\r\n";
 		const char* crlf = std::find_end(Peek(), BeginWrite(), kCRLF, kCRLF+2);
 		return crlf == BeginWrite() ? nullptr : crlf;
 	}
@@ -84,6 +86,7 @@ public:
 	{ return (uint32_t)buffer_.size(); }
 
 private:
+
 	char* Begin()
 	{ return &*buffer_.begin(); }
 
@@ -100,7 +103,6 @@ private:
 	size_t reader_index_ = 0;
 	size_t writer_index_ = 0;
 
-	static const char kCRLF[];
 	static const uint32_t MAX_BYTES_PER_READ = 4096;
 	static const uint32_t MAX_BUFFER_SIZE = 1024 * 100000;
 };
