@@ -8,7 +8,7 @@ using namespace xop;
 
 std::string NetInterface::GetLocalIPAddress()
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
     SOCKET sockfd = 0;
     char buf[512] = { 0 };
     struct ifconf ifconf;

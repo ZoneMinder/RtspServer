@@ -60,7 +60,7 @@ void EventLoop::Loop()
 	{
 #if defined(__linux) || defined(__linux__)
 		std::shared_ptr<TaskScheduler> task_scheduler_ptr(new EpollTaskScheduler(n));
-#elif defined(WIN32) || defined(_WIN32) || defined(__FreeBSD__)
+#elif defined(WIN32) || defined(_WIN32) || defined(__FreeBSD__) || defined(__OpenBSD__)
 		std::shared_ptr<TaskScheduler> task_scheduler_ptr(new SelectTaskScheduler(n));
 #endif
 		task_schedulers_.push_back(task_scheduler_ptr);
@@ -73,7 +73,7 @@ void EventLoop::Loop()
 
 	for (auto iter : threads_) 
 	{
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 
 #elif defined(WIN32) || defined(_WIN32) 
 		switch (priority) 

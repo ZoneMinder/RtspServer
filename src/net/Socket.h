@@ -4,7 +4,7 @@
 #ifndef XOP_SOCKET_H
 #define XOP_SOCKET_H
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined (__OpenBSD__)
 #include <sys/types.h>         
 #include <sys/socket.h>
 #include <sys/ioctl.h>

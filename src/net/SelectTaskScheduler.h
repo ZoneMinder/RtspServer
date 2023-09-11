@@ -9,7 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
