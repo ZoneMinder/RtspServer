@@ -11,9 +11,13 @@
 #include <netinet/in.h> 
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#if 0
+#endif
+
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
 #include <net/ethernet.h>   
 #endif
+
+#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 #include <net/route.h>  
 #include <netdb.h>
 #include <net/if.h>
