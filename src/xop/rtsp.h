@@ -51,17 +51,17 @@ public:
 		char ip[100] = { 0 };
 		char suffix[100] = { 0 };
 		uint16_t port = 0;
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
 		if (sscanf(url.c_str() + 7, "%[^:]:%hu/%s", ip, &port, suffix) == 3)
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
 		if (sscanf_s(url.c_str() + 7, "%[^:]:%hu/%s", ip, 100, &port, suffix, 100) == 3)
 #endif
 		{
 			rtsp_url_info_.port = port;
 		}
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
 		else if (sscanf(url.c_str() + 7, "%[^/]/%s", ip, suffix) == 2)
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
 		else if (sscanf_s(url.c_str() + 7, "%[^/]/%s", ip, 100, suffix, 100) == 2)
 #endif
 		{

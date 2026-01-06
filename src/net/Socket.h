@@ -4,7 +4,7 @@
 #ifndef XOP_SOCKET_H
 #define XOP_SOCKET_H
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
 #include <sys/types.h>         
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -14,10 +14,13 @@
 #endif
 
 #if defined(__linux) || defined(__linux__) || defined(__FreeBSD__)
+/*
+ * ethernet.h is not specified by POSIX and is not present on NetBSD or OpenBSD.
+ */
 #include <net/ethernet.h>   
 #endif
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
 #include <net/route.h>  
 #include <netdb.h>
 #include <net/if.h>
@@ -29,7 +32,7 @@
 #define INVALID_SOCKET  (-1)
 #define SOCKET_ERROR    (-1) 
 
-#elif defined(WIN32) || defined(_WIN32) 
+#else /* Windows */ 
 #define FD_SETSIZE      1024
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
@@ -40,8 +43,6 @@
 #define SHUT_RD 0
 #define SHUT_WR 1 
 #define SHUT_RDWR 2
-
-#else
 
 #endif
 
