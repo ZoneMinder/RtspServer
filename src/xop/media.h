@@ -13,7 +13,7 @@ namespace xop
 /* RTSP服务支持的媒体类型 */
 enum MediaType
 {
-	//PCMU = 0,	 
+	PCMU = 0,
 	PCMA = 8,
 	H264 = 96,
 	AAC  = 37,
