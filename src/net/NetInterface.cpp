@@ -8,7 +8,7 @@ using namespace xop;
 
 std::string NetInterface::GetLocalIPAddress()
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     SOCKET sockfd = 0;
     char buf[512] = { 0 };
     struct ifconf ifconf;
@@ -43,7 +43,7 @@ std::string NetInterface::GetLocalIPAddress()
         }
     }
     return "0.0.0.0";
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     PIP_ADAPTER_INFO pIpAdapterInfo = new IP_ADAPTER_INFO();
     unsigned long size = sizeof(IP_ADAPTER_INFO);
 
@@ -81,8 +81,6 @@ std::string NetInterface::GetLocalIPAddress()
     }
 
     delete pIpAdapterInfo;
-    return "0.0.0.0";
-#else
     return "0.0.0.0";
 #endif
 }

@@ -9,7 +9,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>

@@ -71,12 +71,10 @@ bool TcpSocket::Connect(std::string ip, uint16_t port, int timeout)
 
 void TcpSocket::Close()
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     ::close(sockfd_);
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     closesocket(sockfd_);
-#else
-	
 #endif
 	sockfd_ = 0;
 }

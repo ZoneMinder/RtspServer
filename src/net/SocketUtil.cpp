@@ -23,10 +23,10 @@ bool SocketUtil::Bind(SOCKET sockfd, std::string ip, uint16_t port)
 
 void SocketUtil::SetNonBlock(SOCKET fd)
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     unsigned long on = 1;
     ioctlsocket(fd, FIONBIO, &on);
 #endif
@@ -34,24 +34,22 @@ void SocketUtil::SetNonBlock(SOCKET fd)
 
 void SocketUtil::SetBlock(SOCKET fd, int write_timeout)
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags&(~O_NONBLOCK));
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     unsigned long on = 0;
     ioctlsocket(fd, FIONBIO, &on);
-#else
 #endif
     if(write_timeout > 0)
     {
 #ifdef SO_SNDTIMEO
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     struct timeval tv = {write_timeout/1000, (write_timeout%1000)*1000};
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, sizeof tv);
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     unsigned long ms = (unsigned long)write_timeout;
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&ms, sizeof(unsigned long));
-#else
 #endif		
 #endif
 	}
@@ -168,9 +166,9 @@ int SocketUtil::GetPeerAddr(SOCKET sockfd, struct sockaddr_in *addr)
 
 void SocketUtil::Close(SOCKET sockfd)
 {
-#if defined(__linux) || defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if !defined(WIN32) && !defined(_WIN32) /* not Windows */
     ::close(sockfd);
-#elif defined(WIN32) || defined(_WIN32)
+#else /* Windows */
     ::closesocket(sockfd);
 #endif
 }
