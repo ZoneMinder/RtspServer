@@ -412,7 +412,7 @@ void RtspConnection::HandleCmdGetParamter()
 bool RtspConnection::HandleAuthentication()
 {
 	if (authenticator_ != nullptr && !has_auth_) {
-    if (authenticator_->Authenticate(rtsp_request_, _nonce)) {
+    if (authenticator_->Authenticate(rtsp_request_)) {
 			has_auth_ = true;
     } else {
       std::shared_ptr<char> res(new char[4096], std::default_delete<char[]>());
