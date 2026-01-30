@@ -35,6 +35,28 @@ H264Source::~H264Source()
 
 }
 
+std::string H264Source::Base64Encode(const uint8_t* data, size_t size)
+{
+    static const char base64_chars[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::string result;
+    result.reserve(((size + 2) / 3) * 4);
+
+    for (size_t i = 0; i < size; i += 3) {
+        uint32_t n = (data[i] << 16);
+        if (i + 1 < size) n |= (data[i + 1] << 8);
+        if (i + 2 < size) n |= data[i + 2];
+
+        result += base64_chars[(n >> 18) & 0x3F];
+        result += base64_chars[(n >> 12) & 0x3F];
+        result += (i + 1 < size) ? base64_chars[(n >> 6) & 0x3F] : '=';
+        result += (i + 2 < size) ? base64_chars[n & 0x3F] : '=';
+    }
+
+    return result;
+}
+
 string H264Source::GetMediaDescription(uint16_t port)
 {
     char buf[100] = {0};
@@ -44,7 +66,31 @@ string H264Source::GetMediaDescription(uint16_t port)
 
 string H264Source::GetAttribute()
 {
-    return string("a=rtpmap:96 H264/90000");
+    string attr = "a=rtpmap:96 H264/90000";
+
+    // Add fmtp line with profile-level-id and sprop-parameter-sets if SPS/PPS available
+    if (!sps_.empty() && !pps_.empty()) {
+        // profile-level-id is bytes 1,2,3 of SPS (after NAL header)
+        uint32_t profile_level_id = 0;
+        if (sps_.size() >= 4) {
+            profile_level_id = (sps_[1] << 16) | (sps_[2] << 8) | sps_[3];
+        }
+
+        std::string sps_b64 = Base64Encode(sps_.data(), sps_.size());
+        std::string pps_b64 = Base64Encode(pps_.data(), pps_.size());
+
+        char buf[512];
+        sprintf(buf, "\r\na=fmtp:96 packetization-mode=1;profile-level-id=%06X;sprop-parameter-sets=%s,%s",
+                profile_level_id, sps_b64.c_str(), pps_b64.c_str());
+        attr += buf;
+    }
+
+    if (width_ > 0 && height_ > 0) {
+        char buf[64];
+        sprintf(buf, "\r\na=x-dimensions:%u,%u", width_, height_);
+        attr += buf;
+    }
+    return attr;
 }
 
 bool H264Source::HandleFrame(MediaChannelId channel_id, AVFrame frame)

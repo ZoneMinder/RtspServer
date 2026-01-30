@@ -6,6 +6,7 @@
 
 #include "MediaSource.h"
 #include "rtp.h"
+#include <vector>
 
 namespace xop
 { 
@@ -19,21 +20,39 @@ public:
 	void SetFramerate(uint32_t framerate)
 	{ framerate_ = framerate; }
 
-	uint32_t GetFramerate() const 
+	uint32_t GetFramerate() const
 	{ return framerate_; }
 
-	virtual std::string GetMediaDescription(uint16_t port); 
+	void SetResolution(uint32_t width, uint32_t height)
+	{ width_ = width; height_ = height; }
 
-	virtual std::string GetAttribute(); 
+	uint32_t GetWidth() const { return width_; }
+	uint32_t GetHeight() const { return height_; }
+
+	// Set SPS/PPS for sprop-parameter-sets in SDP
+	void SetSPS(const uint8_t* data, size_t size)
+	{ sps_.assign(data, data + size); }
+
+	void SetPPS(const uint8_t* data, size_t size)
+	{ pps_.assign(data, data + size); }
+
+	virtual std::string GetMediaDescription(uint16_t port);
+
+	virtual std::string GetAttribute();
 
 	virtual bool HandleFrame(MediaChannelId channel_id, AVFrame frame);
 
 	static int64_t GetTimestamp();
-	
+
 private:
 	H264Source(uint32_t framerate);
+	static std::string Base64Encode(const uint8_t* data, size_t size);
 
 	uint32_t framerate_ = 25;
+	uint32_t width_ = 0;
+	uint32_t height_ = 0;
+	std::vector<uint8_t> sps_;
+	std::vector<uint8_t> pps_;
 };
 	
 }
