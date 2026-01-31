@@ -30,7 +30,8 @@ set(RTSPSERVER_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TaskScheduler.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/net/TcpSocket.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/AACSource.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/DigestAuthentication.cpp 
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/AV1Source.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/DigestAuthentication.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/G711ASource.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/H264Source.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/xop/MediaSession.cpp

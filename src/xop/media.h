@@ -17,7 +17,8 @@ enum MediaType
 	PCMA = 8,
 	H264 = 96,
 	AAC  = 37,
-	H265 = 265,   
+	AV1  = 98,
+	H265 = 265,
 	NONE
 };	
 
