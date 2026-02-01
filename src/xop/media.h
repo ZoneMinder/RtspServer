@@ -32,7 +32,7 @@ enum FrameType
 
 struct AVFrame
 {
-	AVFrame() : type(0), timestamp(0) {}
+	AVFrame() : type(0), timestamp(0), last(1) {}
 	AVFrame(const uint8_t *data, std::size_t size) : AVFrame()
 	{
 		buffer.reserve(size);
@@ -42,6 +42,7 @@ struct AVFrame
 	std::vector<uint8_t> buffer;     /* 帧数据 */
 	uint8_t  type;				     /* 帧类型 */
 	int64_t timestamp;		  	     /* 时间戳 */
+	uint8_t  last;                   /* RTP marker bit (1=last packet of frame) */
 };
 
 static const int MAX_MEDIA_CHANNEL = 2;

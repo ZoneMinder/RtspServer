@@ -102,7 +102,7 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 		rtp_pkt.type = frame.type;
 		rtp_pkt.timestamp = frame.timestamp;
 		rtp_pkt.size = frame_size + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE;
-		rtp_pkt.last = 1;
+		rtp_pkt.last = frame.last;  // Use caller-provided value for RTP marker bit
 
 		memcpy(rtp_pkt.data.get()+RTP_TCP_HEAD_SIZE+RTP_HEADER_SIZE, frame_buf, frame_size);
         
