@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.10)
 project(RtspServer)
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src/net/" "${CMAKE_CURRENT_SOURCE_DIR}/src/xop/")
