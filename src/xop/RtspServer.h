@@ -26,13 +26,13 @@ public:
     void RemoveSession(MediaSessionId sessionId);
 
     bool PushFrame(MediaSessionId sessionId, MediaChannelId channelId, AVFrame frame);
+    MediaSession::Ptr LookMediaSession(const std::string& suffix);
+    MediaSession::Ptr LookMediaSession(MediaSessionId session_id);
 
 private:
     friend class RtspConnection;
 
 	RtspServer(xop::EventLoop* loop);
-    MediaSession::Ptr LookMediaSession(const std::string& suffix);
-    MediaSession::Ptr LookMediaSession(MediaSessionId session_id);
     virtual TcpConnection::Ptr OnConnect(SOCKET sockfd);
 
     std::mutex mutex_;

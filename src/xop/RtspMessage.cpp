@@ -9,9 +9,55 @@
 
 #include "RtspMessage.h"
 #include "media.h"
+#include <algorithm>
+#include <cctype>
+#include <sstream>
 
 using namespace std;
 using namespace xop;
+
+static inline void ltrim(string &s)
+{
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+static inline void rtrim(string &s)
+{
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+static inline void trim(string &s)
+{
+    ltrim(s);
+    rtrim(s);
+}
+
+static inline string to_lower_copy(string s)
+{
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return (char)std::tolower(c);
+    });
+    return s;
+}
+
+static inline bool split_key_value(const string &token, string &key, string &value)
+{
+    size_t pos = token.find('=');
+    if (pos == string::npos) {
+        key = token;
+        value.clear();
+        return false;
+    }
+    key = token.substr(0, pos);
+    value = token.substr(pos + 1);
+    trim(key);
+    trim(value);
+    return true;
+}
 
 bool RtspRequest::ParseRequest(BufferReader *buffer)
 {
@@ -98,14 +144,40 @@ bool RtspRequest::ParseRequestLine(const char* begin, const char* end)
 	char ip[64] = {0};
 	char suffix[256] = {0};
 
-	if(sscanf(url+7, "%[^:]:%hu/%s", ip, &port, suffix) == 3) {
+	{
+		string url_str(url + 7);
+		// Strip userinfo if present (user:pass@)
+		size_t at_pos = url_str.find('@');
+		if (at_pos != string::npos) {
+			url_str = url_str.substr(at_pos + 1);
+		}
 
-	}
-	else if(sscanf(url+7, "%[^/]/%s", ip, suffix) == 2) {
-		port = 554;
-	}
-	else {
-		return false;
+		// Split host[:port]/suffix
+		size_t slash_pos = url_str.find('/');
+		if (slash_pos == string::npos) {
+			return false;
+		}
+		string hostport = url_str.substr(0, slash_pos);
+		string suffix_str = url_str.substr(slash_pos + 1);
+		if (suffix_str.empty()) {
+			return false;
+		}
+
+		size_t colon_pos = hostport.find(':');
+		if (colon_pos != string::npos) {
+			string host = hostport.substr(0, colon_pos);
+			string port_str = hostport.substr(colon_pos + 1);
+			if (host.empty() || port_str.empty()) {
+				return false;
+			}
+			port = (uint16_t)atoi(port_str.c_str());
+			snprintf(ip, sizeof(ip), "%s", host.c_str());
+		}
+		else {
+			port = 554;
+			snprintf(ip, sizeof(ip), "%s", hostport.c_str());
+		}
+		snprintf(suffix, sizeof(suffix), "%s", suffix_str.c_str());
 	}
 
 	request_line_param_.emplace("url", make_pair(string(url), 0));
@@ -175,12 +247,13 @@ bool RtspRequest::ParseHeadersLine(const char* begin, const char* end)
 
 bool RtspRequest::ParseCSeq(std::string& message)
 {
-	std::size_t pos = message.find("CSeq");
+	auto pos = message.find("CSeq");
 	if (pos != std::string::npos) {
 		uint32_t cseq = 0;
-		sscanf(message.c_str()+pos, "%*[^:]: %u", &cseq);
-		header_line_param_.emplace("cseq", make_pair("", cseq));
-		return true;
+		if (sscanf(message.c_str() + pos, "%*[^:]: %u", &cseq) == 1) {
+			header_line_param_.emplace("cseq", make_pair("", cseq));
+			return true;
+		}
 	}
 
 	return false;
@@ -199,39 +272,57 @@ bool RtspRequest::ParseAccept(std::string& message)
 bool RtspRequest::ParseTransport(std::string& message)
 {
 	std::size_t pos = message.find("Transport");
-	if(pos != std::string::npos) {
-		if((pos=message.find("RTP/AVP/TCP")) != std::string::npos) {
-			transport_ = RTP_OVER_TCP;
-			uint16_t rtpChannel = 0, rtcpChannel = 0;
-			if (sscanf(message.c_str() + pos, "%*[^;];%*[^;];%*[^=]=%hu-%hu", &rtpChannel, &rtcpChannel) != 2) {
-				return false;
-			}
-			header_line_param_.emplace("rtp_channel", make_pair("", rtpChannel));
-			header_line_param_.emplace("rtcp_channel", make_pair("", rtcpChannel));
-		}
-		else if((pos=message.find("RTP/AVP")) != std::string::npos) {
-			uint16_t rtp_port = 0, rtcpPort = 0;
-			if(((message.find("unicast", pos)) != std::string::npos)) {
-				transport_ = RTP_OVER_UDP;
-				if(sscanf(message.c_str()+pos, "%*[^;];%*[^;];%*[^=]=%hu-%hu",
-						&rtp_port, &rtcpPort) != 2)
-				{
-					return false;
-				}
-
-			}
-			else if((message.find("multicast", pos)) != std::string::npos) {
-				transport_ = RTP_OVER_MULTICAST;
-			}
-			else {
-				return false;
-			}
-
-			header_line_param_.emplace("rtp_port", make_pair("", rtp_port));
-			header_line_param_.emplace("rtcp_port", make_pair("", rtcpPort));
-		}
-		else {
+	if (pos != std::string::npos) {
+		string line = message.substr(pos);
+		size_t colon = line.find(':');
+		if (colon == string::npos) {
 			return false;
+		}
+		string value = line.substr(colon + 1);
+		trim(value);
+		string value_lower = to_lower_copy(value);
+
+		// Determine transport mode
+		if (value_lower.find("rtp/avp/tcp") != string::npos) {
+			transport_ = RTP_OVER_TCP;
+		} else if (value_lower.find("rtp/avp") != string::npos) {
+			if (value_lower.find("multicast") != string::npos) {
+				transport_ = RTP_OVER_MULTICAST;
+			} else {
+				transport_ = RTP_OVER_UDP;
+			}
+		} else {
+			return false;
+		}
+
+		// Parse parameters (order-independent)
+		std::stringstream ss(value);
+		string token;
+		while (std::getline(ss, token, ';')) {
+			trim(token);
+			if (token.empty()) {
+				continue;
+			}
+			string key, val;
+			if (!split_key_value(token, key, val)) {
+				continue;
+			}
+			string key_l = to_lower_copy(key);
+
+			if (key_l == "interleaved") {
+				uint16_t rtpChannel = 0, rtcpChannel = 0;
+				if (sscanf(val.c_str(), "%hu-%hu", &rtpChannel, &rtcpChannel) == 2) {
+					header_line_param_.emplace("rtp_channel", make_pair("", rtpChannel));
+					header_line_param_.emplace("rtcp_channel", make_pair("", rtcpChannel));
+				}
+			}
+			else if (key_l == "client_port") {
+				uint16_t rtp_port = 0, rtcp_port = 0;
+				if (sscanf(val.c_str(), "%hu-%hu", &rtp_port, &rtcp_port) == 2) {
+					header_line_param_.emplace("rtp_port", make_pair("", rtp_port));
+					header_line_param_.emplace("rtcp_port", make_pair("", rtcp_port));
+				}
+			}
 		}
 
 		return true;

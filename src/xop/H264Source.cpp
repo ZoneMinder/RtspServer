@@ -181,4 +181,3 @@ int64_t H264Source::GetTimestamp()
     return (int64_t)((time_point.time_since_epoch().count() + 500) / 1000 * 90 );
 //#endif
 }
- 
