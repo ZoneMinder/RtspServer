@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <mutex>
+#include <memory>
+#include <queue>
+#include <vector>
 
 namespace xop
 {
@@ -12,7 +15,11 @@ namespace xop
 void* Alloc(uint32_t size);
 void Free(void *ptr);
 
+std::shared_ptr<uint8_t> AllocRtpPacket();
+void FreeRtpPacket(std::shared_ptr<uint8_t> buffer);
+
 class MemoryPool;
+class RtpPacketPool;
 
 struct MemoryBlock
 {
@@ -42,6 +49,32 @@ public:
 	std::mutex mutex_;
 };
 
+struct RtpPacketBuffer
+{
+	uint8_t data[1600];
+	RtpPacketBuffer() { }
+};
+
+class RtpPacketPool
+{
+public:
+	RtpPacketPool();
+	virtual ~RtpPacketPool();
+	
+	void Init(uint32_t capacity);
+	std::shared_ptr<uint8_t> AllocPacket();
+	void FreePacket(std::shared_ptr<uint8_t> buffer);
+	
+	uint32_t GetAvailable() const
+	{ return available_.size(); }
+	
+private:
+	std::queue<std::shared_ptr<uint8_t>> available_;
+	std::mutex mutex_;
+	uint32_t capacity_ = 0;
+	std::vector<std::shared_ptr<RtpPacketBuffer>> buffers_;
+};
+
 class MemoryManager
 {
 public:
@@ -50,12 +83,16 @@ public:
 
 	void* Alloc(uint32_t size);
 	void  Free(void* ptr);
+	
+	std::shared_ptr<uint8_t> AllocRtpPacket();
+	void FreeRtpPacket(std::shared_ptr<uint8_t> buffer);
 
 private:
 	MemoryManager();
 
 	static const int kMaxMemoryPool = 3;
 	MemoryPool memory_pools_[kMaxMemoryPool];
+	RtpPacketPool rtp_packet_pool_;
 };
 
 }

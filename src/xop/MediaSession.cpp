@@ -54,7 +54,6 @@ bool MediaSession::AddSource(MediaChannelId channel_id, MediaSource* source)
 {
 	source->SetSendFrameCallback([this](MediaChannelId channel_id, RtpPacket pkt) {
 		std::forward_list<std::shared_ptr<RtpConnection>> clients;
-		std::map<int, RtpPacket> packets;
 		{
 			std::lock_guard<std::mutex> lock(map_mutex_);
 			for (auto iter = clients_.begin(); iter != clients_.end();) {
@@ -65,15 +64,6 @@ bool MediaSession::AddSource(MediaChannelId channel_id, MediaSource* source)
 				else  {				
 					int id = conn->GetId();
 					if (id >= 0) {
-						if (packets.find(id) == packets.end()) {
-							RtpPacket tmp_pkt;
-							memcpy(tmp_pkt.data.get(), pkt.data.get(), pkt.size);
-							tmp_pkt.size = pkt.size;
-							tmp_pkt.last = pkt.last;
-							tmp_pkt.timestamp = pkt.timestamp;
-							tmp_pkt.type = pkt.type;
-							packets.emplace(id, tmp_pkt);
-						}
 						clients.emplace_front(conn);
 					}
 					iter++;
@@ -81,19 +71,18 @@ bool MediaSession::AddSource(MediaChannelId channel_id, MediaSource* source)
 			}
 		}
         
+		/* Zero-copy: share the same RtpPacket buffer among all clients.
+		   Each client only writes its own RTP header and sends. */
 		int count = 0;
 		for(auto iter : clients) {
 			int ret = 0;
 			int id = iter->GetId();
 			if (id >= 0) {
-				auto iter2 = packets.find(id);
-				if (iter2 != packets.end()) {
-					count++;
-					ret = iter->SendRtpPacket(channel_id, iter2->second);
-					if (is_multicast_ && ret == 0) {
-						break;
-					}				
-				}
+				count++;
+				ret = iter->SendRtpPacket(channel_id, pkt);
+				if (is_multicast_ && ret == 0) {
+					break;
+				}				
 			}					
 		}
 		return true;
@@ -215,6 +204,11 @@ bool MediaSession::HandleFrame(MediaChannelId channel_id, AVFrame frame)
 bool MediaSession::AddClient(SOCKET rtspfd, std::shared_ptr<RtpConnection> rtp_conn)
 {
 	std::lock_guard<std::mutex> lock(map_mutex_);
+
+	/* Limit to MAX_CLIENTS for embedded systems */
+	if (clients_.size() >= MAX_CLIENTS) {
+		return false;
+	}
 
 	auto iter = clients_.find (rtspfd);
 	if(iter == clients_.end()) {

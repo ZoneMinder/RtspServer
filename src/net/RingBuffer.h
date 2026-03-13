@@ -26,16 +26,17 @@ public:
 
 	bool Push(const T& data) 
 	{ 
-		return pushData(std::forward<T>(data)); 
+		return PushData(data); 
 	} 	
 
 	bool Push(T&& data) 
 	{ 
-		return PushData(data); 
+		return PushData(std::forward<T>(data)); 
 	} 
         
 	bool Pop(T& data)
 	{
+		std::lock_guard<std::mutex> lock(mutex_);
 		if(num_datas_ > 0) {
 			data = std::move(buffer_[get_pos_]);
 			Add(get_pos_);
@@ -44,7 +45,7 @@ public:
 		}
 
 		return false;
-	}	
+	}
 
 	bool IsFull()  const 
 	{ 
@@ -87,6 +88,7 @@ private:
 
 	std::atomic_int num_datas_;     			
 	std::vector<T> buffer_;
+	std::mutex mutex_;  /* Protect get_pos_ and put_pos_ access */
 };
 
 }
