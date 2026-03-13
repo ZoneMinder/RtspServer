@@ -15,6 +15,9 @@ namespace xop
 void* Alloc(uint32_t size);
 void Free(void *ptr);
 
+std::shared_ptr<uint8_t> AllocRtpPacket();
+void FreeRtpPacket(std::shared_ptr<uint8_t> buffer);
+
 class MemoryPool;
 class RtpPacketPool;
 
