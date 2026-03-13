@@ -30,6 +30,10 @@ RtspConnection::RtspConnection(std::shared_ptr<Rtsp> rtsp, TaskScheduler *task_s
 		this->OnClose();
 	});
 
+	/* Optimize socket for low latency RTSP/RTP streaming */
+	SocketUtil::SetNoDelay(sockfd);
+	SocketUtil::SetSendBufSize(sockfd, 256*1024);
+
 	alive_count_ = 1;
 
 	rtp_channel_->SetReadCallback([this]() { this->HandleRead(); });
@@ -253,22 +257,32 @@ void RtspConnection::HandleCmdDescribe()
 	}
 	else {
 		session_id_ = media_session->GetMediaSessionId();
-		media_session->AddClient(this->GetSocket(), rtp_conn_);
-
-		for(int chn=0; chn<MAX_MEDIA_CHANNEL; chn++) {
-			MediaSource* source = media_session->GetMediaSource((MediaChannelId)chn);
-			if(source != nullptr) {
-				rtp_conn_->SetClockRate((MediaChannelId)chn, source->GetClockRate());
-				rtp_conn_->SetPayloadType((MediaChannelId)chn, source->GetPayloadType());
-			}
-		}
-
-		std::string sdp = media_session->GetSdpMessage(SocketUtil::GetSocketIp(this->GetSocket()), rtsp->GetVersion());
-		if(sdp == "") {
-			size = rtsp_request_->BuildServerErrorRes(res.get(), 4096);
+		if (!media_session->AddClient(this->GetSocket(), rtp_conn_)) {
+			/* Too many concurrent clients - reject with 503 Service Unavailable */
+			snprintf(res.get(), 4096,
+					"RTSP/1.0 503 Service Unavailable\r\n"
+					"CSeq: %u\r\n"
+					"Content-Length: 0\r\n"
+					"\r\n",
+					rtsp_request_->GetCSeq());
+			size = (int)strlen(res.get());
 		}
 		else {
-			size = rtsp_request_->BuildDescribeRes(res.get(), 4096, sdp.c_str());
+			for(int chn=0; chn<MAX_MEDIA_CHANNEL; chn++) {
+				MediaSource* source = media_session->GetMediaSource((MediaChannelId)chn);
+				if(source != nullptr) {
+					rtp_conn_->SetClockRate((MediaChannelId)chn, source->GetClockRate());
+					rtp_conn_->SetPayloadType((MediaChannelId)chn, source->GetPayloadType());
+				}
+			}
+
+			std::string sdp = media_session->GetSdpMessage(SocketUtil::GetSocketIp(this->GetSocket()), rtsp->GetVersion());
+			if(sdp == "") {
+				size = rtsp_request_->BuildServerErrorRes(res.get(), 4096);
+			}
+			else {
+				size = rtsp_request_->BuildDescribeRes(res.get(), 4096, sdp.c_str());
+			}
 		}
 	}
 

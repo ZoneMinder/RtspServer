@@ -28,7 +28,7 @@ enum TransportMode
 typedef struct _RTP_header
 {
 #if RTP_HEADER_BIG_ENDIAN
-	/* 大端序 */
+	/* Big-endian */
 	unsigned char version   : 2;
 	unsigned char padding   : 1;
 	unsigned char extension : 1;
@@ -36,14 +36,14 @@ typedef struct _RTP_header
 	unsigned char marker    : 1;
 	unsigned char payload   : 7;
 #else
-	/* 小端序 */
+	/* Little-endian */
 	unsigned char csrc      : 4;
 	unsigned char extension : 1;
 	unsigned char padding   : 1;
 	unsigned char version   : 2;
 	unsigned char payload   : 7;
 	unsigned char marker    : 1;
-#endif 
+#endif
 	unsigned short seq;
 	unsigned int   ts;
 	unsigned int   ssrc;
@@ -53,17 +53,17 @@ struct MediaChannelInfo
 {
 	RtpHeader rtp_header;
 
-	// tcp
+	/* TCP transport info */
 	uint16_t rtp_channel;
 	uint16_t rtcp_channel;
 
-	// udp
+	/* UDP transport info */
 	uint16_t rtp_port;
 	uint16_t rtcp_port;
 	uint16_t packet_seq;
 	uint32_t clock_rate;
 
-	// rtcp
+	/* RTCP statistics */
 	uint64_t packet_count;
 	uint64_t octet_count;
 	uint64_t last_rtcp_ntp_time;
@@ -84,7 +84,7 @@ struct RtpPacket
 		last = 0;
 	}
 
-	std::shared_ptr<uint8_t> data;
+	std::shared_ptr<uint8_t> data;  /* Shared among all clients (zero-copy) */
 	uint32_t size;
 	uint32_t timestamp;
 	uint8_t  type;

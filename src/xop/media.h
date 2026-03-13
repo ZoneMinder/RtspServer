@@ -10,7 +10,7 @@
 namespace xop
 {
 
-/* RTSP服务支持的媒体类型 */
+/* RTSP supported media types */
 enum MediaType
 {
 	PCMU = 0,
@@ -39,13 +39,15 @@ struct AVFrame
 		buffer.assign(data, data + size);
 	}
 
-	std::vector<uint8_t> buffer;     /* 帧数据 */
-	uint8_t  type;				     /* 帧类型 */
-	int64_t timestamp;		  	     /* 时间戳 */
+	std::vector<uint8_t> buffer;     /* Frame data */
+	uint8_t  type;				     /* Frame type */
+	int64_t timestamp;		  	     /* Timestamp */
 	uint8_t  last;                   /* RTP marker bit (1=last packet of frame) */
 };
 
 static const int MAX_MEDIA_CHANNEL = 2;
+static const int MAX_CLIENTS = 3;  /* Embedded systems: max 3 concurrent clients */
+static const int RTP_PACKET_POOL_SIZE = 100;  /* RTP packet pool capacity */
 
 enum MediaChannelId
 {
