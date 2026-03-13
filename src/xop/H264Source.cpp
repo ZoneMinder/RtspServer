@@ -10,6 +10,7 @@
 #include "H264Source.h"
 #include <cstdio>
 #include <chrono>
+#include <cstring>
 #if defined(__linux) || defined(__linux__)
 #include <sys/time.h>
 #endif
@@ -33,6 +34,70 @@ H264Source* H264Source::CreateNew(uint32_t framerate)
 H264Source::~H264Source()
 {
 
+}
+
+static bool find_start_code_h264(const uint8_t *data, size_t size, size_t from, size_t *sc_pos, size_t *sc_len)
+{
+	for (size_t i = from; i + 3 < size; i++) {
+		if (data[i] == 0x00 && data[i + 1] == 0x00) {
+			if (data[i + 2] == 0x01) {
+				*sc_pos = i;
+				*sc_len = 3;
+				return true;
+			}
+			if (i + 3 < size && data[i + 2] == 0x00 && data[i + 3] == 0x01) {
+				*sc_pos = i;
+				*sc_len = 4;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+static void extract_sps_pps_h264(const uint8_t *data, size_t size, 
+                                 const uint8_t *&sps, size_t &sps_size,
+                                 const uint8_t *&pps, size_t &pps_size)
+{
+	sps = nullptr;
+	sps_size = 0;
+	pps = nullptr;
+	pps_size = 0;
+
+	size_t pos = 0;
+	size_t sc_pos = 0, sc_len = 0;
+	
+	while (find_start_code_h264(data, size, pos, &sc_pos, &sc_len)) {
+		size_t nal_start = sc_pos + sc_len;
+		size_t next_sc_pos = 0, next_sc_len = 0;
+		size_t nal_end = size;
+		
+		if (find_start_code_h264(data, size, nal_start, &next_sc_pos, &next_sc_len)) {
+			nal_end = next_sc_pos;
+		}
+		
+		if (nal_end > nal_start && nal_end - nal_start > 0) {
+			const uint8_t *nal_data = data + nal_start;
+			size_t nal_sz = nal_end - nal_start;
+			
+			if (nal_sz > 0) {
+				uint8_t nal_type = nal_data[0] & 0x1F;
+				
+				if (nal_type == 7 && !sps) {  // SPS
+					sps = nal_data;
+					sps_size = nal_sz;
+				} else if (nal_type == 8 && !pps) {  // PPS
+					pps = nal_data;
+					pps_size = nal_sz;
+				}
+				
+				if (sps && pps) break;
+			}
+		}
+		
+		pos = nal_end;
+		if (pos >= size) break;
+	}
 }
 
 std::string H264Source::Base64Encode(const uint8_t* data, size_t size)
@@ -100,7 +165,26 @@ bool H264Source::HandleFrame(MediaChannelId channel_id, AVFrame frame)
 
     if (frame.timestamp == 0) {
 	    frame.timestamp = GetTimestamp();
-    }    
+    }
+    
+    // Extract SPS/PPS if not yet available (only on first I-frame or if changed)
+    if ((sps_.empty() || pps_.empty()) && frame_size > 0) {
+        const uint8_t *found_sps = nullptr;
+        size_t found_sps_size = 0;
+        const uint8_t *found_pps = nullptr;
+        size_t found_pps_size = 0;
+        
+        extract_sps_pps_h264((const uint8_t*)frame_buf, frame_size, 
+                            found_sps, found_sps_size, 
+                            found_pps, found_pps_size);
+        
+        if (found_sps && found_sps_size > 0) {
+            sps_.assign(found_sps, found_sps + found_sps_size);
+        }
+        if (found_pps && found_pps_size > 0) {
+            pps_.assign(found_pps, found_pps + found_pps_size);
+        }
+    }
 
     if (frame_size <= MAX_RTP_PAYLOAD_SIZE) {
       RtpPacket rtp_pkt;
