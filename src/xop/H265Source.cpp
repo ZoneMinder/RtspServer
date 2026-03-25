@@ -1,7 +1,7 @@
 ﻿// PHZ
 // 2018-6-7
 
-#if defined(WIN32) || defined(_WIN32) 
+#if defined(WIN32) || defined(_WIN32)
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <chrono>
 #include <cstring>
-#if defined(__linux) || defined(__linux__) 
+#if defined(__linux) || defined(__linux__)
 #include <sys/time.h>
 #endif
 
@@ -55,6 +55,17 @@ static bool find_start_code_h265(const uint8_t *data, size_t size, size_t from, 
 	return false;
 }
 
+static size_t leading_start_code_h265(const uint8_t *data, size_t size)
+{
+	if (size >= 3 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01) {
+		return 3;
+	}
+	if (size >= 4 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01) {
+		return 4;
+	}
+	return 0;
+}
+
 static void extract_vps_sps_pps_h265(const uint8_t *data, size_t size,
                                     const uint8_t *&vps, size_t &vps_size,
                                     const uint8_t *&sps, size_t &sps_size,
@@ -69,23 +80,23 @@ static void extract_vps_sps_pps_h265(const uint8_t *data, size_t size,
 
 	size_t pos = 0;
 	size_t sc_pos = 0, sc_len = 0;
-	
+
 	while (find_start_code_h265(data, size, pos, &sc_pos, &sc_len)) {
 		size_t nal_start = sc_pos + sc_len;
 		size_t next_sc_pos = 0, next_sc_len = 0;
 		size_t nal_end = size;
-		
+
 		if (find_start_code_h265(data, size, nal_start, &next_sc_pos, &next_sc_len)) {
 			nal_end = next_sc_pos;
 		}
-		
+
 		if (nal_end > nal_start && nal_end - nal_start > 0) {
 			const uint8_t *nal_data = data + nal_start;
 			size_t nal_sz = nal_end - nal_start;
-			
+
 			if (nal_sz > 1) {
 				uint8_t nal_type = (nal_data[0] >> 1) & 0x3F;
-				
+
 				if (nal_type == 32 && !vps) {  // VPS
 					vps = nal_data;
 					vps_size = nal_sz;
@@ -96,11 +107,11 @@ static void extract_vps_sps_pps_h265(const uint8_t *data, size_t size,
 					pps = nal_data;
 					pps_size = nal_sz;
 				}
-				
+
 				if (vps && sps && pps) break;
 			}
 		}
-		
+
 		pos = nal_end;
 		if (pos >= size) break;
 	}
@@ -134,7 +145,7 @@ string H265Source::GetMediaDescription(uint16_t port)
 	sprintf(buf, "m=video %hu RTP/AVP 96", port);
 	return string(buf);
 }
-	
+
 string H265Source::GetAttribute()
 {
 	string attr = "a=rtpmap:96 H265/90000";
@@ -167,7 +178,7 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 	if (frame.timestamp == 0) {
 		frame.timestamp = GetTimestamp();
 	}
-	
+
 	// Extract VPS/SPS/PPS if not yet available (only on first I-frame or if changed)
 	if ((vps_.empty() || sps_.empty() || pps_.empty()) && frame_size > 0) {
 		const uint8_t *found_vps = nullptr;
@@ -176,12 +187,12 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 		size_t found_sps_size = 0;
 		const uint8_t *found_pps = nullptr;
 		size_t found_pps_size = 0;
-		
+
 		extract_vps_sps_pps_h265((const uint8_t*)frame_buf, frame_size,
 		                         found_vps, found_vps_size,
 		                         found_sps, found_sps_size,
 		                         found_pps, found_pps_size);
-		
+
 		if (found_vps && found_vps_size > 0) {
 			vps_.assign(found_vps, found_vps + found_vps_size);
 		}
@@ -192,7 +203,17 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			pps_.assign(found_pps, found_pps + found_pps_size);
 		}
 	}
-        
+
+	size_t start_code_len = leading_start_code_h265(frame_buf, frame_size);
+	if (start_code_len > 0) {
+		frame_buf += start_code_len;
+		frame_size -= start_code_len;
+	}
+
+	if (frame_size == 0) {
+		return false;
+	}
+
 	if (frame_size <= MAX_RTP_PAYLOAD_SIZE) {
 		RtpPacket rtp_pkt;
 		rtp_pkt.type = frame.type;
@@ -201,23 +222,23 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 		rtp_pkt.last = frame.last;  // Use caller-provided value for RTP marker bit
 
 		memcpy(rtp_pkt.data.get()+RTP_TCP_HEAD_SIZE+RTP_HEADER_SIZE, frame_buf, frame_size);
-        
+
 		if (send_frame_callback_) {
 			if (!send_frame_callback_(channelId, rtp_pkt)) {
 				return false;
-			}          
+			}
 		}
-	}	
-	else {	
-		char FU[3] = {0};	
-		char nalUnitType = (frame_buf[0] & 0x7E) >> 1; 
-		FU[0] = (frame_buf[0] & 0x81) | (49<<1); 
-		FU[1] = frame_buf[1]; 
-		FU[2] = (0x80 | nalUnitType); 
-        
+	}
+	else {
+		char FU[3] = {0};
+		char nalUnitType = (frame_buf[0] & 0x7E) >> 1;
+		FU[0] = (frame_buf[0] & 0x81) | (49<<1);
+		FU[1] = frame_buf[1];
+		FU[2] = (0x80 | nalUnitType);
+
 		frame_buf  += 2;
 		frame_size -= 2;
-        
+
 		while (frame_size + 3 > MAX_RTP_PAYLOAD_SIZE) {
 			RtpPacket rtp_pkt;
 			rtp_pkt.type = frame.type;
@@ -229,19 +250,19 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 1] = FU[1];
 			rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 2] = FU[2];
 			memcpy(rtp_pkt.data.get()+RTP_TCP_HEAD_SIZE+RTP_HEADER_SIZE+3, frame_buf, MAX_RTP_PAYLOAD_SIZE-3);
-            
+
 			if (send_frame_callback_) {
 				if (!send_frame_callback_(channelId, rtp_pkt)) {
 					return false;
-				}                
+				}
 			}
-            
+
 			frame_buf  += (MAX_RTP_PAYLOAD_SIZE - 3);
 			frame_size -= (MAX_RTP_PAYLOAD_SIZE - 3);
-        
-			FU[2] &= ~0x80;						
+
+			FU[2] &= ~0x80;
 		}
-        
+
 		{
 			RtpPacket rtp_pkt;
 			rtp_pkt.type = frame.type;
@@ -254,13 +275,13 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 1] = FU[1];
 			rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 2] = FU[2];
 			memcpy(rtp_pkt.data.get()+RTP_TCP_HEAD_SIZE+RTP_HEADER_SIZE+3, frame_buf, frame_size);
-            
+
 			if (send_frame_callback_) {
 				if (!send_frame_callback_(channelId, rtp_pkt)) {
 					return false;
-				}               
+				}
 			}
-		}            
+		}
 	}
 
 	return true;
@@ -268,7 +289,7 @@ bool H265Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 
 int64_t H265Source::GetTimestamp()
 {
-/* #if defined(__linux) || defined(__linux__) 
+/* #if defined(__linux) || defined(__linux__)
 	struct timeval tv = {0};
 	gettimeofday(&tv, NULL);
 	uint32_t ts = ((tv.tv_sec*1000)+((tv.tv_usec+500)/1000))*90; // 90: _clockRate/1000;
@@ -278,5 +299,5 @@ int64_t H265Source::GetTimestamp()
 	//auto time_point = chrono::time_point_cast<chrono::milliseconds>(chrono::steady_clock::now());
 	auto time_point = chrono::time_point_cast<chrono::microseconds>(chrono::steady_clock::now());
 	return (int64_t)((time_point.time_since_epoch().count() + 500) / 1000 * 90);
-//#endif 
+//#endif
 }

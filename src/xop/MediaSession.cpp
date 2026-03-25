@@ -119,10 +119,6 @@ bool MediaSession::StartMulticast()
 
 std::string MediaSession::GetSdpMessage(std::string ip, std::string session_name)
 {
-	if (sdp_ != "") {
-		return sdp_;
-	}
-    
 	if (media_sources_.empty()) {
 		return "";
 	}
@@ -174,8 +170,7 @@ std::string MediaSession::GetSdpMessage(std::string ip, std::string session_name
 		}
 	}
 
-	sdp_ = buf;
-	return sdp_;
+	return buf;
 }
 
 MediaSource* MediaSession::GetMediaSource(MediaChannelId channel_id)
@@ -240,4 +235,3 @@ void MediaSession::RemoveClient(SOCKET rtspfd)
 		clients_.erase(iter);
 	}
 }
-

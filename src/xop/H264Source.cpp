@@ -21,7 +21,7 @@ using namespace std;
 H264Source::H264Source(uint32_t framerate)
 	: framerate_(framerate)
 {
-    payload_    = 96; 
+    payload_    = 96;
     media_type_ = H264;
     clock_rate_ = 90000;
 }
@@ -55,7 +55,18 @@ static bool find_start_code_h264(const uint8_t *data, size_t size, size_t from, 
 	return false;
 }
 
-static void extract_sps_pps_h264(const uint8_t *data, size_t size, 
+static size_t leading_start_code_h264(const uint8_t *data, size_t size)
+{
+    if (size >= 3 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01) {
+        return 3;
+    }
+    if (size >= 4 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01) {
+        return 4;
+    }
+    return 0;
+}
+
+static void extract_sps_pps_h264(const uint8_t *data, size_t size,
                                  const uint8_t *&sps, size_t &sps_size,
                                  const uint8_t *&pps, size_t &pps_size)
 {
@@ -66,23 +77,23 @@ static void extract_sps_pps_h264(const uint8_t *data, size_t size,
 
 	size_t pos = 0;
 	size_t sc_pos = 0, sc_len = 0;
-	
+
 	while (find_start_code_h264(data, size, pos, &sc_pos, &sc_len)) {
 		size_t nal_start = sc_pos + sc_len;
 		size_t next_sc_pos = 0, next_sc_len = 0;
 		size_t nal_end = size;
-		
+
 		if (find_start_code_h264(data, size, nal_start, &next_sc_pos, &next_sc_len)) {
 			nal_end = next_sc_pos;
 		}
-		
+
 		if (nal_end > nal_start && nal_end - nal_start > 0) {
 			const uint8_t *nal_data = data + nal_start;
 			size_t nal_sz = nal_end - nal_start;
-			
+
 			if (nal_sz > 0) {
 				uint8_t nal_type = nal_data[0] & 0x1F;
-				
+
 				if (nal_type == 7 && !sps) {  // SPS
 					sps = nal_data;
 					sps_size = nal_sz;
@@ -90,11 +101,11 @@ static void extract_sps_pps_h264(const uint8_t *data, size_t size,
 					pps = nal_data;
 					pps_size = nal_sz;
 				}
-				
+
 				if (sps && pps) break;
 			}
 		}
-		
+
 		pos = nal_end;
 		if (pos >= size) break;
 	}
@@ -166,24 +177,34 @@ bool H264Source::HandleFrame(MediaChannelId channel_id, AVFrame frame)
     if (frame.timestamp == 0) {
 	    frame.timestamp = GetTimestamp();
     }
-    
+
     // Extract SPS/PPS if not yet available (only on first I-frame or if changed)
     if ((sps_.empty() || pps_.empty()) && frame_size > 0) {
         const uint8_t *found_sps = nullptr;
         size_t found_sps_size = 0;
         const uint8_t *found_pps = nullptr;
         size_t found_pps_size = 0;
-        
-        extract_sps_pps_h264((const uint8_t*)frame_buf, frame_size, 
-                            found_sps, found_sps_size, 
+
+        extract_sps_pps_h264((const uint8_t*)frame_buf, frame_size,
+                            found_sps, found_sps_size,
                             found_pps, found_pps_size);
-        
+
         if (found_sps && found_sps_size > 0) {
             sps_.assign(found_sps, found_sps + found_sps_size);
         }
         if (found_pps && found_pps_size > 0) {
             pps_.assign(found_pps, found_pps + found_pps_size);
         }
+    }
+
+    size_t start_code_len = leading_start_code_h264(frame_buf, frame_size);
+    if (start_code_len > 0) {
+        frame_buf += start_code_len;
+        frame_size -= start_code_len;
+    }
+
+    if (frame_size == 0) {
+        return false;
     }
 
     if (frame_size <= MAX_RTP_PAYLOAD_SIZE) {
@@ -197,7 +218,7 @@ bool H264Source::HandleFrame(MediaChannelId channel_id, AVFrame frame)
       if (send_frame_callback_) {
         if (!send_frame_callback_(channel_id, rtp_pkt)) {
           return false;
-        }               
+        }
       }
     } else {
         char FU_A[2] = {0};
@@ -245,7 +266,7 @@ bool H264Source::HandleFrame(MediaChannelId channel_id, AVFrame frame)
             if (send_frame_callback_) {
 			    if (!send_frame_callback_(channel_id, rtp_pkt)) {
 				    return false;
-			    }              
+			    }
             }
         }
     }

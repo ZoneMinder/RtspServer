@@ -88,7 +88,6 @@ private:
 
 	MediaSessionId session_id_ = 0;
 	std::string suffix_;
-	std::string sdp_;
 
 	std::vector<std::unique_ptr<MediaSource>> media_sources_;
 	std::vector<RingBuffer<AVFrame>> buffer_;
