@@ -59,6 +59,11 @@ std::string AV1Source::Base64Encode(const uint8_t* data, size_t size)
 
 string AV1Source::GetMediaDescription(uint16_t port)
 {
+	if (passthrough_) {
+		char buf[128] = {0};
+		snprintf(buf, sizeof(buf), passthrough_media_desc_.c_str(), port);
+		return string(buf);
+	}
 	char buf[100] = {0};
 	sprintf(buf, "m=video %hu RTP/AVP 98", port);
 	return string(buf);
@@ -66,6 +71,9 @@ string AV1Source::GetMediaDescription(uint16_t port)
 
 string AV1Source::GetAttribute()
 {
+	if (passthrough_) {
+		return passthrough_attribute_;
+	}
 	// RFC 9164: a=rtpmap:98 AV1/90000
 	string attr = "a=rtpmap:98 AV1/90000";
 
@@ -102,24 +110,54 @@ bool AV1Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 		frame.timestamp = GetTimestamp();
 	}
 
-	// RFC 9164 AV1 RTP packetization
-	// AV1 aggregation header (1 byte):
-	// - Z (1 bit): Set to 1 if first OBU element is a continuation of previous packet
-	// - Y (1 bit): Set to 1 if last OBU element will continue in next packet
-	// - W (2 bits): Number of OBU elements minus 1 (0-2), or 3 for arbitrary number
-	// - N (1 bit): Set to 1 if this is the start of a new coded video sequence
-	// - Reserved (3 bits)
+	if (passthrough_) {
+		// The payload is already a complete RTP payload produced by ffmpeg's RTP
+		// muxer; just wrap it (no aggregation/fragmentation here). frame.last is
+		// the RTP marker for the final packet of the temporal unit.
+		RtpPacket rtp_pkt;
+		rtp_pkt.type = frame.type;
+		rtp_pkt.timestamp = frame.timestamp;
+		rtp_pkt.size = frame_size + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE;
+		rtp_pkt.last = frame.last;
+		memcpy(rtp_pkt.data.get() + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE, frame_buf, frame_size);
+		if (send_frame_callback_) {
+			return send_frame_callback_(channelId, rtp_pkt);
+		}
+		return true;
+	}
+
+	// RFC 9164 AV1 RTP aggregation header (1 byte):
+	//   bit0 Z : first OBU element is a continuation of an OBU from the prev packet
+	//   bit1 Y : last OBU element continues in the next packet
+	//   bits2-3 W : number of OBU elements in the packet (0 = each element is
+	//               preceded by a LEB128 length; 1-3 = that many elements, the
+	//               last of which has NO length prefix)
+	//   bit4 N : this packet starts a new coded video sequence (the sequence
+	//            header). Required so a mid-stream receiver can initialise.
+	// The caller pushes exactly one OBU per frame here, so each packet carries a
+	// single OBU element: W=1, no LEB128 prefix. (The previous code used W=0 but
+	// wrote no length prefix, which is malformed — receivers couldn't parse the
+	// OBUs, so ffprobe reported no resolution/framerate.)
+	static const uint8_t kW1 = 0x10;  // W=1 in bits 2-3
+	static const uint8_t kN  = 0x08;  // N in bit 4
+	static const uint8_t kY  = 0x40;
+	static const uint8_t kZ  = 0x80;
+
+	// N marks the start of a new coded video sequence — i.e. the sequence header
+	// OBU (obu_type == 1).
+	uint8_t obu_type = (frame_size > 0) ? ((frame_buf[0] >> 3) & 0x0F) : 0;
+	bool new_cvs = (obu_type == 1 /* OBU_SEQUENCE_HEADER */);
 
 	if (frame_size + 1 <= MAX_RTP_PAYLOAD_SIZE) {
-		// Frame fits in a single packet
+		// Single OBU element in a single packet.
 		RtpPacket rtp_pkt;
 		rtp_pkt.type = frame.type;
 		rtp_pkt.timestamp = frame.timestamp;
 		rtp_pkt.size = frame_size + 1 + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE;
 		rtp_pkt.last = 1;
 
-		// AV1 aggregation header: Z=0, Y=0, W=0 (1 OBU), N=0
-		rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE] = 0x00;
+		uint8_t agg_header = kW1 | (new_cvs ? kN : 0);
+		rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE] = agg_header;
 		memcpy(rtp_pkt.data.get() + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 1, frame_buf, frame_size);
 
 		if (send_frame_callback_) {
@@ -128,11 +166,8 @@ bool AV1Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			}
 		}
 	} else {
-		// Frame needs fragmentation
-		// First fragment: Z=0 (not continuation), Y=1 (will continue), W=0, N=0
-		// Middle fragments: Z=1 (continuation), Y=1 (will continue), W=0, N=0
-		// Last fragment: Z=1 (continuation), Y=0 (end), W=0, N=0
-
+		// One OBU element fragmented over several packets (still W=1; Z/Y mark the
+		// fragmentation, N only on the first fragment of a new sequence).
 		uint32_t offset = 0;
 		bool first = true;
 
@@ -151,15 +186,10 @@ bool AV1Source::HandleFrame(MediaChannelId channelId, AVFrame frame)
 			rtp_pkt.size = RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 1 + chunk_size;
 			rtp_pkt.last = last_chunk ? 1 : 0;
 
-			// Build aggregation header
-			uint8_t agg_header = 0;
-			if (!first) {
-				agg_header |= 0x80;  // Z=1: continuation
-			}
-			if (!last_chunk) {
-				agg_header |= 0x40;  // Y=1: will continue
-			}
-			// W=0 (00): single OBU element in this packet
+			uint8_t agg_header = kW1;
+			if (!first)      agg_header |= kZ;            // continuation
+			if (!last_chunk) agg_header |= kY;            // will continue
+			if (first && new_cvs) agg_header |= kN;       // new sequence
 
 			rtp_pkt.data.get()[RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE] = agg_header;
 			memcpy(rtp_pkt.data.get() + RTP_TCP_HEAD_SIZE + RTP_HEADER_SIZE + 1,
