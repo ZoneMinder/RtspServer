@@ -19,7 +19,7 @@ namespace xop
 
 class RtspConnection;
 
-class RtpConnection
+class RtpConnection : public std::enable_shared_from_this<RtpConnection>
 {
 public:
     RtpConnection(std::weak_ptr<TcpConnection> rtsp_connection);

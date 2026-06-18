@@ -247,19 +247,25 @@ int RtpConnection::SendRtpPacket(MediaChannelId channel_id, RtpPacket pkt)
 
 	RtspConnection *rtsp_conn = (RtspConnection *)conn.get();
 
-	bool ret = rtsp_conn->task_scheduler_->AddTriggerEvent([this, channel_id, pkt] {
-		this->SetFrameType(pkt.type);
-		this->SetRtpHeader(channel_id, pkt);
-		if((media_channel_info_[channel_id].is_play || media_channel_info_[channel_id].is_record) && has_key_frame_ ) {            
-			if(transport_mode_ == RTP_OVER_TCP) {
-				SendRtpOverTcp(channel_id, pkt);
+	// Capture a shared_ptr to self so the trigger lambda cannot UAF if the
+	// RtpConnection is destroyed between enqueue and the event-loop thread
+	// invoking it (e.g. client disconnect, session teardown). Previously the
+	// lambda captured raw `this`, which crashed deep in xop send paths when
+	// the connection went away before the scheduler drained the queue.
+	auto self = shared_from_this();
+	bool ret = rtsp_conn->task_scheduler_->AddTriggerEvent([self, channel_id, pkt] {
+		self->SetFrameType(pkt.type);
+		self->SetRtpHeader(channel_id, pkt);
+		if((self->media_channel_info_[channel_id].is_play || self->media_channel_info_[channel_id].is_record) && self->has_key_frame_ ) {
+			if(self->transport_mode_ == RTP_OVER_TCP) {
+				self->SendRtpOverTcp(channel_id, pkt);
 			}
 			else {
-				SendRtpOverUdp(channel_id, pkt);
+				self->SendRtpOverUdp(channel_id, pkt);
 			}
-                   
-			//media_channel_info_[channel_id].octetCount  += pkt.size;
-			//media_channel_info_[channel_id].packetCount += 1;
+
+			//self->media_channel_info_[channel_id].octetCount  += pkt.size;
+			//self->media_channel_info_[channel_id].packetCount += 1;
 		}
 	});
 
