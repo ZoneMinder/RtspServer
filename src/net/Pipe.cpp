@@ -6,6 +6,10 @@
 #include <random>
 #include <string>
 #include <array>
+#if !defined(WIN32) && !defined(_WIN32)
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 using namespace xop;
 
@@ -56,9 +60,21 @@ bool Pipe::Create()
 
 	SocketUtil::SetNonBlock(pipe_fd_[0]);
 	SocketUtil::SetNonBlock(pipe_fd_[1]);
-#else /* Not Windows */
+#elif defined(__linux) || defined(__linux__)
 	if (pipe2(pipe_fd_, O_NONBLOCK | O_CLOEXEC) < 0) {
 		return false;
+	}
+#else /* macOS/BSD: no pipe2(), emulate with pipe() + fcntl() */
+	if (pipe(pipe_fd_) < 0) {
+		return false;
+	}
+	for (int i = 0; i < 2; i++) {
+		if (fcntl(pipe_fd_[i], F_SETFL, fcntl(pipe_fd_[i], F_GETFL) | O_NONBLOCK) < 0 ||
+		    fcntl(pipe_fd_[i], F_SETFD, FD_CLOEXEC) < 0) {
+			::close(pipe_fd_[0]);
+			::close(pipe_fd_[1]);
+			return false;
+		}
 	}
 #endif
 	return true;
