@@ -1,4 +1,5 @@
 ﻿#include "RtspServer.h"
+#include <vector>
 #include "RtspConnection.h"
 #include "net/SocketUtil.h"
 #include "net/Logger.h"
@@ -41,12 +42,29 @@ MediaSessionId RtspServer::AddSession(MediaSession* session)
 
 void RtspServer::RemoveSession(MediaSessionId sessionId)
 {
-    std::lock_guard<std::mutex> locker(mutex_);
+    {
+        std::lock_guard<std::mutex> locker(mutex_);
 
-    auto iter = media_sessions_.find(sessionId);
-    if(iter != media_sessions_.end()) {
-        rtsp_suffix_map_.erase(iter->second->GetRtspUrlSuffix());
-        media_sessions_.erase(sessionId);
+        auto iter = media_sessions_.find(sessionId);
+        if(iter != media_sessions_.end()) {
+            rtsp_suffix_map_.erase(iter->second->GetRtspUrlSuffix());
+            media_sessions_.erase(sessionId);
+        }
+    }
+
+    std::vector<TcpConnection::Ptr> clients;
+    {
+        std::lock_guard<std::mutex> locker(TcpServer::mutex_);
+        for(auto& iter : connections_) {
+            auto conn = std::static_pointer_cast<RtspConnection>(iter.second);
+            if(conn->GetMediaSessionId() == sessionId) {
+                clients.push_back(iter.second);
+            }
+        }
+    }
+
+    for(auto& conn : clients) {
+        conn->Disconnect();
     }
 }
 
