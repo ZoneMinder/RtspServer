@@ -41,12 +41,21 @@ MediaSessionId RtspServer::AddSession(MediaSession* session)
 
 void RtspServer::RemoveSession(MediaSessionId sessionId)
 {
-    std::lock_guard<std::mutex> locker(mutex_);
+    MediaSession::Ptr media_session;
+    {
+        std::lock_guard<std::mutex> locker(mutex_);
 
-    auto iter = media_sessions_.find(sessionId);
-    if(iter != media_sessions_.end()) {
-        rtsp_suffix_map_.erase(iter->second->GetRtspUrlSuffix());
-        media_sessions_.erase(sessionId);
+        auto iter = media_sessions_.find(sessionId);
+        if(iter != media_sessions_.end()) {
+            media_session = iter->second;
+            rtsp_suffix_map_.erase(media_session->GetRtspUrlSuffix());
+            media_sessions_.erase(iter);
+        }
+    }
+
+    // Clients of a removed session would otherwise stay connected and get no data
+    if (media_session) {
+        media_session->DisconnectClients();
     }
 }
 

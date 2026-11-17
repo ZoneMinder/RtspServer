@@ -60,6 +60,7 @@ public:
 
 	bool AddClient(SOCKET rtspfd, std::shared_ptr<RtpConnection> rtp_conn);
 	void RemoveClient(SOCKET rtspfd);
+	void DisconnectClients();
 
 	MediaSessionId GetMediaSessionId()
 	{ return session_id_; }

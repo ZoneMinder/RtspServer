@@ -231,6 +231,27 @@ bool MediaSession::AddClient(SOCKET rtspfd, std::shared_ptr<RtpConnection> rtp_c
 	return false;
 }
 
+// Closes the RTSP connection of every client, e.g. when the session is removed
+void MediaSession::DisconnectClients()
+{
+	std::vector<std::shared_ptr<TcpConnection>> connections;
+	{
+		std::lock_guard<std::mutex> lock(map_mutex_);
+		for (auto& client : clients_) {
+			auto rtp_conn = client.second.lock();
+			if (rtp_conn) {
+				auto rtsp_conn = rtp_conn->rtsp_connection_.lock();
+				if (rtsp_conn) {
+					connections.push_back(rtsp_conn);
+				}
+			}
+		}
+	}
+	for (auto& conn : connections) {
+		conn->Disconnect();
+	}
+}
+
 void MediaSession::RemoveClient(SOCKET rtspfd)
 {  
 	std::lock_guard<std::mutex> lock(map_mutex_);
