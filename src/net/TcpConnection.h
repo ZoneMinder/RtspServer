@@ -67,7 +67,9 @@ protected:
 
 private:
 	void Close();
+	void DropStalledClient();
 
+	bool overflowed_ = false;
 	std::shared_ptr<xop::Channel> channel_;
 	std::mutex mutex_;
 	DisconnectCallback disconnect_cb_;

@@ -36,7 +36,9 @@ void TcpConnection::Send(std::shared_ptr<char> data, uint32_t size)
 {
 	if (!is_closed_) {
 		mutex_.lock();
-		if (!write_buffer_->Append(data, size))
+		if (write_buffer_->IsFull())
+			DropStalledClient();
+		else if (!write_buffer_->Append(data, size))
       std::cerr << "write_buffer failed" << std::endl;
 		mutex_.unlock();
 
@@ -48,12 +50,28 @@ void TcpConnection::Send(const char *data, uint32_t size)
 {
 	if (!is_closed_) {
 		mutex_.lock();
-		if ( !write_buffer_->Append(data, size))
+		if (write_buffer_->IsFull())
+			DropStalledClient();
+		else if ( !write_buffer_->Append(data, size))
       std::cerr << "write_buffer failed" << std::endl;
 		mutex_.unlock();
 
 		this->HandleWrite();
 	}
+}
+
+// Called with mutex_ held. A client that stops reading would otherwise keep its queue full forever.
+void TcpConnection::DropStalledClient()
+{
+	if (overflowed_) {
+		return;
+	}
+	overflowed_ = true;
+	std::cerr << "write_buffer full, client is not reading, closing connection" << std::endl;
+	auto conn = shared_from_this();
+	task_scheduler_->AddTriggerEvent([conn]() {
+		conn->Close();
+	});
 }
 
 void TcpConnection::Disconnect()
