@@ -231,8 +231,16 @@ void RtspConnection::HandleCmdOption()
 
 void RtspConnection::HandleCmdDescribe()
 {
-	if (authenticator_!=nullptr && !HandleAuthentication()) {
-		return;
+	if (authenticator_ != nullptr) {
+		// The login only covers the stream it was given for, not every name on this connection.
+		std::string stream = rtsp_request_->GetRtspUrlSession();
+		if (stream != auth_stream_) {
+			has_auth_ = false;
+		}
+		if (!HandleAuthentication()) {
+			return;
+		}
+		auth_stream_ = stream;
 	}
 
 	if (rtp_conn_ == nullptr) {
