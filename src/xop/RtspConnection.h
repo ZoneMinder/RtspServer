@@ -119,6 +119,7 @@ private:
 	MediaSessionId  session_id_ = 0;
 
 	bool has_auth_ = true;
+	std::string auth_stream_;
 	std::string _nonce;
 	std::shared_ptr<Authenticator> authenticator_;
 
